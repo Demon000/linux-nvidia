@@ -323,6 +323,23 @@ static struct tegracam_ctrl_ops imx219_ctrl_ops = {
 	.set_group_hold = imx219_set_group_hold,
 };
 
+static int imx219_board_setup(struct imx219 *priv);
+
+static int imx219_post_register(struct camera_common_data *s_data)
+{
+	struct imx219 *priv = (struct imx219 *)s_data->priv;
+	struct device *dev = s_data->dev;
+	int err;
+
+	err = imx219_board_setup(priv);
+	if (err) {
+		dev_err(dev, "board setup failed\n");
+		return err;
+	}
+
+	return 0;
+}
+
 static int imx219_power_on(struct camera_common_data *s_data)
 {
 	int err = 0;
@@ -629,6 +646,7 @@ static int imx219_stop_streaming(struct tegracam_device *tc_dev)
 static struct camera_common_sensor_ops imx219_common_ops = {
 	.numfrmfmts = ARRAY_SIZE(imx219_frmfmt),
 	.frmfmt_table = imx219_frmfmt,
+	.post_register = imx219_post_register,
 	.power_on = imx219_power_on,
 	.power_off = imx219_power_off,
 	.write_reg = imx219_write_reg,
@@ -750,13 +768,6 @@ static int imx219_probe(struct i2c_client *client,
 	priv->s_data = tc_dev->s_data;
 	priv->subdev = &tc_dev->s_data->subdev;
 	tegracam_set_privdata(tc_dev, (void *)priv);
-
-	err = imx219_board_setup(priv);
-	if (err) {
-		tegracam_device_unregister(tc_dev);
-		dev_err(dev, "board setup failed\n");
-		return err;
-	}
 
 	err = tegracam_v4l2subdev_register(tc_dev, true);
 	if (err) {
