@@ -167,6 +167,7 @@ struct camera_common_data;
 struct camera_common_sensor_ops {
 	u32 numfrmfmts;
 	const struct camera_common_frmfmt *frmfmt_table;
+	int (*post_register)(struct camera_common_data *s_data);
 	int (*power_on)(struct camera_common_data *s_data);
 	int (*power_off)(struct camera_common_data *s_data);
 	int (*write_reg)(struct camera_common_data *s_data,
@@ -345,6 +346,7 @@ int camera_common_enum_frameintervals(struct v4l2_subdev *sd,
 		struct v4l2_subdev_frame_interval_enum *fie);
 int camera_common_set_power(struct camera_common_data *data, int on);
 int camera_common_s_power(struct v4l2_subdev *sd, int on);
+int camera_common_post_register(struct v4l2_subdev *sd);
 void camera_common_dpd_disable(struct camera_common_data *s_data);
 void camera_common_dpd_enable(struct camera_common_data *s_data);
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 10, 0)

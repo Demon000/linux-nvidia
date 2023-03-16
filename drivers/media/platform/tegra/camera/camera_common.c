@@ -979,6 +979,17 @@ int camera_common_s_power(struct v4l2_subdev *sd, int on)
 }
 EXPORT_SYMBOL_GPL(camera_common_s_power);
 
+int camera_common_post_register(struct v4l2_subdev *sd)
+{
+	struct camera_common_data *s_data = to_camera_common_data(sd->dev);
+
+	if (!s_data)
+		return -EINVAL;
+
+	return call_s_op(s_data, post_register);
+}
+EXPORT_SYMBOL_GPL(camera_common_post_register);
+
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 10, 0)
 int camera_common_g_mbus_config(struct v4l2_subdev *sd,
 				struct v4l2_mbus_config *cfg)
