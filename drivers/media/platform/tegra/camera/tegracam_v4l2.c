@@ -130,6 +130,7 @@ static struct v4l2_subdev_video_ops v4l2sd_video_ops = {
 };
 
 static struct v4l2_subdev_core_ops v4l2sd_core_ops = {
+	.post_register = camera_common_post_register,
 	.s_power	= camera_common_s_power,
 };
 
