@@ -113,10 +113,22 @@ static inline void imx219_get_gain_reg(imx219_reg *reg, u8 gain)
 static inline int imx219_read_reg(struct camera_common_data *s_data,
 	u16 addr, u8 *val)
 {
+	unsigned int retry = 100;
 	int err = 0;
 	u32 reg_val = 0;
 
+retry:
 	err = regmap_read(s_data->regmap, addr, &reg_val);
+	if (err) {
+		dev_err(s_data->dev, "%s: i2c read failed, 0x%x",
+			__func__, addr);
+
+		if (retry) {
+			retry--;
+			goto retry;	
+		}
+	}
+
 	*val = reg_val & 0xff;
 
 	return err;
@@ -125,12 +137,20 @@ static inline int imx219_read_reg(struct camera_common_data *s_data,
 static inline int imx219_write_reg(struct camera_common_data *s_data,
 	u16 addr, u8 val)
 {
+	unsigned int retry = 100;
 	int err = 0;
 
+retry:
 	err = regmap_write(s_data->regmap, addr, val);
-	if (err)
+	if (err) {
 		dev_err(s_data->dev, "%s: i2c write failed, 0x%x = %x",
 			__func__, addr, val);
+
+		if (retry) {
+			retry--;
+			goto retry;	
+		}
+	}
 
 	return err;
 }
