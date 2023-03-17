@@ -114,6 +114,16 @@ static int tegra_vi_graph_build_one(struct tegra_channel *chan,
 		}
 #endif
 
+		ret = media_entity_get_fwnode_pad(local, of_fwnode_handle(ep),
+						  MEDIA_PAD_FL_SOURCE | MEDIA_PAD_FL_SINK);
+		if (ret < 0) {
+			dev_err(chan->vi->dev,
+				"Failed to find pad for %s: %d\n", entity->subdev->name, ret);
+			return ret;
+		}
+
+		link.local_port = ret;
+
 		if (link.local_port >= local->num_pads) {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
 			dev_err(chan->vi->dev,
@@ -186,6 +196,16 @@ static int tegra_vi_graph_build_one(struct tegra_channel *chan,
 		}
 
 		remote = ent->entity;
+
+		ret = media_entity_get_fwnode_pad(remote, link.remote_node,
+						  MEDIA_PAD_FL_SINK);
+		if (ret < 0) {
+			dev_err(chan->vi->dev,
+				"Failed to find pad for %s: %d\n", entity->subdev->name, ret);
+			return ret;
+		}
+
+		link.remote_port = ret;
 
 		if (link.remote_port >= remote->num_pads) {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
