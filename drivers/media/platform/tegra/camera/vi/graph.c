@@ -632,6 +632,7 @@ static int tegra_vi_graph_parse_one(struct tegra_channel *chan,
 				struct device_node *node)
 {
 	struct device_node *ep = NULL;
+	struct device_node *remote_ep = NULL;
 	struct device_node *next;
 	struct device_node *remote = NULL;
 	struct tegra_vi_graph_entity *entity;
@@ -649,6 +650,12 @@ static int tegra_vi_graph_parse_one(struct tegra_channel *chan,
 
 		remote = of_graph_get_remote_port_parent(ep);
 		if (!remote) {
+			ret = -EINVAL;
+			break;
+		}
+
+		remote_ep = of_graph_get_remote_endpoint(ep);
+		if (!remote_ep) {
 			ret = -EINVAL;
 			break;
 		}
@@ -671,14 +678,14 @@ static int tegra_vi_graph_parse_one(struct tegra_channel *chan,
 		entity->asd.match_type = V4L2_ASYNC_MATCH_FWNODE;
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 4, 0)
-		entity->asd.match.fwnode.fwnode = of_fwnode_handle(remote);
+		entity->asd.match.fwnode.fwnode = of_fwnode_handle(remote_ep);
 #else
-		entity->asd.match.fwnode = of_fwnode_handle(remote);
+		entity->asd.match.fwnode = of_fwnode_handle(remote_ep);
 #endif
 
 #else
 		entity->asd.match_type = V4L2_ASYNC_MATCH_OF;
-		entity->asd.match.of.node = remote;
+		entity->asd.match.of.node = remote_ep;
 #endif
 
 		entity->skip_notifier = of_property_read_bool(remote, "nv,skip-notifier");
@@ -774,6 +781,7 @@ int tegra_vi_graph_init(struct tegra_mc_vi *vi)
 	unsigned int num_subdevs = 0;
 	int ret = 0, i;
 	struct device_node *ep = NULL;
+	struct device_node *remote_ep = NULL;
 	struct device_node *next;
 	struct device_node *remote = NULL;
 	struct tegra_channel *chan;
@@ -832,6 +840,12 @@ int tegra_vi_graph_init(struct tegra_mc_vi *vi)
 			continue;
 		}
 
+		remote_ep = of_graph_get_remote_endpoint(ep);
+		if (!remote_ep) {
+			ret = -EINVAL;
+			break;
+		}
+
 		if (!of_device_is_available(remote)) {
 			dev_info(vi->dev, "remote of_device is not enabled %s.\n",
 					ep->full_name);
@@ -847,13 +861,13 @@ int tegra_vi_graph_init(struct tegra_mc_vi *vi)
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
 		entity->asd.match_type = V4L2_ASYNC_MATCH_FWNODE;
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 4, 0)
-		entity->asd.match.fwnode.fwnode = of_fwnode_handle(remote);
+		entity->asd.match.fwnode.fwnode = of_fwnode_handle(remote_ep);
 #else
-		entity->asd.match.fwnode = of_fwnode_handle(remote);
+		entity->asd.match.fwnode = of_fwnode_handle(remote_ep);
 #endif
 #else
 		entity->asd.match_type = V4L2_ASYNC_MATCH_OF;
-		entity->asd.match.of.node = remote;
+		entity->asd.match.of.node = remote_ep;
 #endif
 		list_add_tail(&entity->list, &chan->entities);
 		chan->num_subdevs++;
