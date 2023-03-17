@@ -107,6 +107,8 @@ struct tegra_vi_graph_entity {
 	struct device_node *node;
 	struct media_entity *entity;
 
+	bool skip_notifier;
+	bool skip_link;
 	struct v4l2_async_subdev asd;
 	struct v4l2_subdev *subdev;
 };
