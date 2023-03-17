@@ -41,6 +41,9 @@
 
 #include "nvcsi/nvcsi.h"
 
+#undef dev_dbg
+#define dev_dbg dev_err
+
 /* -----------------------------------------------------------------------------
  * Graph Management
  */
@@ -114,6 +117,10 @@ static int tegra_vi_graph_build_one(struct tegra_channel *chan,
 		}
 #endif
 
+		dev_err(chan->vi->dev,
+			"local port number %u for %pOF\n",
+			link.local_port, to_of_node(link.local_node));
+
 		ret = media_entity_get_fwnode_pad(local, of_fwnode_handle(ep),
 						  MEDIA_PAD_FL_SOURCE | MEDIA_PAD_FL_SINK);
 		if (ret < 0) {
@@ -123,6 +130,10 @@ static int tegra_vi_graph_build_one(struct tegra_channel *chan,
 		}
 
 		link.local_port = ret;
+
+		dev_err(chan->vi->dev,
+			"local port pad %u for %pOF\n",
+			link.local_port, to_of_node(link.local_node));
 
 		if (link.local_port >= local->num_pads) {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
@@ -197,6 +208,9 @@ static int tegra_vi_graph_build_one(struct tegra_channel *chan,
 
 		remote = ent->entity;
 
+		dev_err(chan->vi->dev, "remote port number %u on %pOF\n",
+			link.remote_port, to_of_node(link.remote_node));
+
 		ret = media_entity_get_fwnode_pad(remote, link.remote_node,
 						  MEDIA_PAD_FL_SINK);
 		if (ret < 0) {
@@ -206,6 +220,9 @@ static int tegra_vi_graph_build_one(struct tegra_channel *chan,
 		}
 
 		link.remote_port = ret;
+
+		dev_err(chan->vi->dev, "remote port pad %u on %pOF\n",
+			link.remote_port, to_of_node(link.remote_node));
 
 		if (link.remote_port >= remote->num_pads) {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
@@ -463,6 +480,8 @@ static int tegra_vi_graph_notify_bound(struct v4l2_async_notifier *notifier,
 		container_of(notifier, struct tegra_channel, notifier);
 	struct tegra_vi_graph_entity *entity;
 
+	dev_info(chan->vi->dev, "subdev %s trying to bind\n", subdev->name);
+
 	/* Locate the entity corresponding to the bound subdev and store the
 	 * subdev pointer.
 	 */
@@ -638,7 +657,7 @@ static int tegra_vi_graph_parse_one(struct tegra_channel *chan,
 	struct tegra_vi_graph_entity *entity;
 	int ret = 0;
 
-	dev_dbg(chan->vi->dev, "parsing node %s\n", node->full_name);
+	dev_dbg(chan->vi->dev, "parsing node %pfw\n", of_fwnode_handle(node));
 	/* Parse all the remote entities and put them into the list */
 	do {
 		next = of_graph_get_next_endpoint(node, ep);
@@ -646,7 +665,7 @@ static int tegra_vi_graph_parse_one(struct tegra_channel *chan,
 			break;
 		ep = next;
 
-		dev_dbg(chan->vi->dev, "handling endpoint %s\n", ep->full_name);
+		dev_dbg(chan->vi->dev, "handling endpoint %pfw\n", of_fwnode_handle(ep));
 
 		remote = of_graph_get_remote_port_parent(ep);
 		if (!remote) {
@@ -663,8 +682,16 @@ static int tegra_vi_graph_parse_one(struct tegra_channel *chan,
 		/* skip the vi of_node and duplicated entities */
 		if (remote == chan->vi->dev->of_node ||
 		    tegra_vi_graph_find_entity(chan, remote) ||
-		    !of_device_is_available(remote))
+		    !of_device_is_available(remote)) {
+			dev_dbg(chan->vi->dev, "skipped %pfw\n", of_fwnode_handle(ep));
+			if (remote == chan->vi->dev->of_node)
+				dev_dbg(chan->vi->dev, "skipped because is vi\n");
+			if (tegra_vi_graph_find_entity(chan, remote))
+				dev_dbg(chan->vi->dev, "skipped because duplicate\n");
+			if (!of_device_is_available(remote))
+				dev_dbg(chan->vi->dev, "skipped because not available\n");
 			continue;
+		}
 
 		entity = devm_kzalloc(chan->vi->dev, sizeof(*entity),
 				GFP_KERNEL);
@@ -676,11 +703,14 @@ static int tegra_vi_graph_parse_one(struct tegra_channel *chan,
 		entity->node = remote;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
 		entity->asd.match_type = V4L2_ASYNC_MATCH_FWNODE;
+		dev_dbg(chan->vi->dev, "asd match fwnode type\n");
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 4, 0)
 		entity->asd.match.fwnode.fwnode = of_fwnode_handle(remote_ep);
+		dev_dbg(chan->vi->dev, "asd match fwnode fwnode %pfw\n", of_fwnode_handle(remote_ep));
 #else
 		entity->asd.match.fwnode = of_fwnode_handle(remote_ep);
+		dev_dbg(chan->vi->dev, "asd match fwnode %pfw\n", of_fwnode_handle(remote_ep));
 #endif
 
 #else
@@ -694,6 +724,8 @@ static int tegra_vi_graph_parse_one(struct tegra_channel *chan,
 		list_add_tail(&entity->list, &chan->entities);
 		if (!entity->skip_notifier)
 			chan->num_subdevs++;
+
+		dev_dbg(chan->vi->dev, "end now\n");
 
 		/* Find remote entities, which are linked to this entity */
 		ret = tegra_vi_graph_parse_one(chan, entity->node);
@@ -829,7 +861,7 @@ int tegra_vi_graph_init(struct tegra_mc_vi *vi)
 			goto done;
 		}
 
-		dev_dbg(vi->dev, "handling endpoint %s\n", ep->full_name);
+		dev_dbg(vi->dev, "handling endpoint %pfw\n", of_fwnode_handle(ep));
 		remote = of_graph_get_remote_port_parent(ep);
 		if (!remote) {
 			dev_info(vi->dev, "cannot find remote port parent\n");
@@ -860,10 +892,13 @@ int tegra_vi_graph_init(struct tegra_mc_vi *vi)
 		entity->node = remote;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
 		entity->asd.match_type = V4L2_ASYNC_MATCH_FWNODE;
+		dev_dbg(chan->vi->dev, "asd match fwnode type\n");
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 4, 0)
 		entity->asd.match.fwnode.fwnode = of_fwnode_handle(remote_ep);
+		dev_dbg(chan->vi->dev, "asd match fwnode fwnode %pfw\n", of_fwnode_handle(remote_ep));
 #else
 		entity->asd.match.fwnode = of_fwnode_handle(remote_ep);
+		dev_dbg(chan->vi->dev, "asd match fwnode %pfw\n", of_fwnode_handle(remote_ep));
 #endif
 #else
 		entity->asd.match_type = V4L2_ASYNC_MATCH_OF;
@@ -874,6 +909,8 @@ int tegra_vi_graph_init(struct tegra_mc_vi *vi)
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
 		chan->notifier.ops = chan->notifier.ops ? chan->notifier.ops : &vi_chan_notify_ops;
 #endif
+
+		dev_dbg(chan->vi->dev, "end now\n");
 
 		/* Parse and add entities on this enpoint/channel */
 		ret = tegra_vi_graph_parse_one(chan, entity->node);

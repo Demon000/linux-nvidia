@@ -40,6 +40,9 @@
 #include "camera/vi/vi5_fops.h"
 #include "nvhost_acm.h"
 
+#undef dev_dbg
+#define dev_dbg dev_err
+
 /**
  * @brief Invalid VI channel ID; the channel is not initialized.
  */

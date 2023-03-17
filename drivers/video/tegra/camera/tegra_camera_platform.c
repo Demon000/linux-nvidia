@@ -42,6 +42,9 @@
 
 #include "nvhost_acm.h"
 
+#undef dev_dbg
+#define dev_dbg dev_err
+
 #define CAMDEV_NAME "tegra_camera_ctrl"
 
 /* Peak BPP for any of the YUV/Bayer formats */

@@ -1903,6 +1903,9 @@ int tegra_channel_init_subdevices(struct tegra_channel *chan)
 	v4l2_set_subdev_hostdata(sd, chan);
 	chan->subdev[num_sd++] = sd;
 
+	dev_err(chan->vi->dev, "%s: init media entity: %s, pad index: %u\n",
+		__func__, entity->name, pad->index);
+
 	/* verify if the immediate subdevice is slvsec */
 	chan->is_slvsec = (strstr(sd->name, "slvs") != NULL) ? 1 : 0;
 
@@ -1925,14 +1928,21 @@ int tegra_channel_init_subdevices(struct tegra_channel *chan)
 		if (pad == NULL || !tegra_is_v4l2_subdev(pad->entity))
 			break;
 
-		if (num_sd >= MAX_SUBDEVICES)
+		if (num_sd >= MAX_SUBDEVICES) {
+			dev_err(chan->vi->dev, "%s: reached max subdevices\n",
+				__func__);
 			break;
+		}
 
 		entity = pad->entity;
 		sd = media_entity_to_v4l2_subdev(entity);
 		v4l2_set_subdev_hostdata(sd, chan);
 		sd->grp_id = grp_id;
 		chan->subdev[num_sd++] = sd;
+
+		dev_err(chan->vi->dev, "%s: init media entity: %s, pad index: %u\n",
+			__func__, entity->name, pad->index);
+
 		/* Add subdev name to this video dev name with vi-output tag*/
 		len = snprintf(chan->video->name, sizeof(chan->video->name), "%s, %s",
 			"vi-output", sd->name);

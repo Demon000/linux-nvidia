@@ -46,6 +46,9 @@
 #include "t194/t194.h"
 #include "media/csi.h"
 
+#undef dev_dbg
+#define dev_dbg dev_err
+
 /* PG rate based on max ISP throughput */
 #define PG_CLK_RATE	102000000
 /* width of interface between VI and CSI */

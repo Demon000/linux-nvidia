@@ -34,6 +34,9 @@
 #include <asm/barrier.h>
 #include <linux/nospec.h>
 
+#undef dev_dbg
+#define dev_dbg dev_err
+
 #define has_s_op(master, op) \
 	(master->ops && master->ops->op)
 #define call_s_op(master, op) \
