@@ -168,6 +168,9 @@ static bool camera_common_verify_code(
 {
 	int i;
 
+	if (WARN_ON(!chan))
+		return false;
+
 	for (i = 0; i < chan->num_video_formats; i++) {
 		if (chan->video_formats[i]->code == code)
 			return true;
