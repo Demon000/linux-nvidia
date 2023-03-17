@@ -209,6 +209,13 @@ static int tegra_vi_graph_build_one(struct tegra_channel *chan,
 			v4l2_of_put_link(&link);
 #endif
 
+		if (entity->skip_link) {
+			dev_dbg(chan->vi->dev, "skipping %s:%u -> %s:%u link\n",
+				local->name, local_pad->index,
+				remote->name, remote_pad->index);
+			continue;
+		}
+
 		/* Create the media link. */
 		dev_dbg(chan->vi->dev, "creating %s:%u -> %s:%u link\n",
 			local->name, local_pad->index,
@@ -653,8 +660,13 @@ static int tegra_vi_graph_parse_one(struct tegra_channel *chan,
 		entity->asd.match_type = V4L2_ASYNC_MATCH_OF;
 		entity->asd.match.of.node = remote;
 #endif
+
+		entity->skip_notifier = of_property_read_bool(remote, "nv,skip-notifier");
+		entity->skip_link = of_property_read_bool(remote, "nv,skip-link");
+
 		list_add_tail(&entity->list, &chan->entities);
-		chan->num_subdevs++;
+		if (!entity->skip_notifier)
+			chan->num_subdevs++;
 
 		/* Find remote entities, which are linked to this entity */
 		ret = tegra_vi_graph_parse_one(chan, entity->node);
@@ -854,8 +866,12 @@ int tegra_vi_graph_init(struct tegra_mc_vi *vi)
 
 		i = 0;
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 4, 0)
-		list_for_each_entry(entity, &chan->entities, list)
+		list_for_each_entry(entity, &chan->entities, list) {
+			if (entity->skip_notifier)
+				continue;
+
 			subdevs[i++] = &entity->asd;
+		}
 
 		chan->notifier.subdevs = subdevs;
 		chan->notifier.num_subdevs = num_subdevs;
@@ -864,8 +880,12 @@ int tegra_vi_graph_init(struct tegra_mc_vi *vi)
 		chan->notifier.complete = tegra_vi_graph_notify_complete;
 #else
 		v4l2_async_notifier_init(&chan->notifier);
-		list_for_each_entry(entity, &chan->entities, list)
+		list_for_each_entry(entity, &chan->entities, list) {
+			if (entity->skip_notifier)
+				continue;
+
 			v4l2_async_notifier_add_subdev(&chan->notifier, &entity->asd);
+		}
 #endif
 
 		chan->link_status = 0;
