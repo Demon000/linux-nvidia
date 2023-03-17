@@ -751,8 +751,15 @@ static struct v4l2_subdev_ops tegra_csi_ops = {
  * Media Operations
  */
 
+int tegra_csi_fwnode_pad(struct media_entity *entity,
+			 struct fwnode_endpoint *endpoint)
+{
+	return endpoint->port;
+}
+
 static const struct media_entity_operations tegra_csi_media_ops = {
 	.link_validate = v4l2_subdev_link_validate,
+	.get_fwnode_pad = tegra_csi_fwnode_pad,
 };
 
 /* -----------------------------------------------------------------------------
