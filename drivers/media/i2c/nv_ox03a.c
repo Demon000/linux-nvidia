@@ -108,6 +108,23 @@ static struct tegracam_ctrl_ops ox03a_ctrl_ops = {
 	.set_group_hold = ox03a_set_group_hold,
 };
 
+static int ox03a_board_setup(struct ox03a *priv);
+
+static int ox03a_post_register(struct camera_common_data *s_data)
+{
+	struct ox03a *priv = (struct ox03a *)s_data->priv;
+	struct device *dev = s_data->dev;
+	int err;
+
+	err = ox03a_board_setup(priv);
+	if (err) {
+		dev_err(dev, "board setup failed\n");
+		return err;
+	}
+
+	return 0;
+}
+
 static int ox03a_power_on(struct camera_common_data *s_data)
 {
 	int err = 0;
@@ -449,6 +466,7 @@ static int ox03a_stop_streaming(struct tegracam_device *tc_dev)
 static struct camera_common_sensor_ops ox03a_common_ops = {
 	.numfrmfmts = ARRAY_SIZE(ox03a_frmfmt),
 	.frmfmt_table = ox03a_frmfmt,
+	.post_register = ox03a_post_register,
 	.power_on = ox03a_power_on,
 	.power_off = ox03a_power_off,
 	.write_reg = ox03a_write_reg,
@@ -564,13 +582,6 @@ static int ox03a_probe(struct i2c_client *client,
 	priv->s_data = tc_dev->s_data;
 	priv->subdev = &tc_dev->s_data->subdev;
 	tegracam_set_privdata(tc_dev, (void *)priv);
-
-	err = ox03a_board_setup(priv);
-	if (err) {
-		tegracam_device_unregister(tc_dev);
-		dev_err(dev, "board setup failed\n");
-		return err;
-	}
 
 	err = tegracam_v4l2subdev_register(tc_dev, true);
 	if (err) {
