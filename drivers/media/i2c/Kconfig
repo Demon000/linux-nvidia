@@ -118,6 +118,15 @@ config NV_VIDEO_OV23850
 	  To compile this driver as a module, choose M here: the module
 	  will be called ov23850.
 
+config NV_VIDEO_OX03A
+	tristate "OmniVision X3A sensor support"
+	depends on I2C && VIDEO_V4L2 && VIDEO_V4L2_SUBDEV_API
+	help
+	  This driver supports OmniVision X3A camera sensor
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called nv_ox03a.
+
 config I2C_IOEXPANDER_PCA9570
 	tristate "nxp PCA9570 I2C IO Expander"
 	help
