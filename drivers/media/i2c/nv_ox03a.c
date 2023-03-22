@@ -338,6 +338,8 @@ static int ox03a_power_get(struct tegracam_device *tc_dev)
 
 	/* Reset GPIO */
 	pw->reset_gpio = pdata->reset_gpio;
+	if (!pdata->reset_gpio)
+		goto skip_reset_gpio;
 	err = gpio_request(pw->reset_gpio, "cam_reset_gpio");
 	if (err < 0) {
 		dev_err(dev, "%s: unable to request reset_gpio (%d)\n",
@@ -345,7 +347,11 @@ static int ox03a_power_get(struct tegracam_device *tc_dev)
 		goto done;
 	}
 
+skip_reset_gpio:
+
 	/* PWDN GPIO */
+	if (!pdata->pwdn_gpio)
+		goto skip_pwdn_gpio;
 	pw->pwdn_gpio = pdata->pwdn_gpio;
 	err = gpio_request(pw->pwdn_gpio, "cam_pwdn_gpio");
 	if (err < 0) {
@@ -354,6 +360,7 @@ static int ox03a_power_get(struct tegracam_device *tc_dev)
 		goto done;
 	}
 
+skip_pwdn_gpio:
 done:
 	pw->state = SWITCH_OFF;
 
@@ -390,7 +397,7 @@ static struct camera_common_pdata *ox03a_parse_dt(
 		if (gpio == -EPROBE_DEFER)
 			ret = ERR_PTR(-EPROBE_DEFER);
 		dev_err(dev, "reset-gpios not found\n");
-		goto error;
+		gpio = 0;
 	}
 	board_priv_pdata->reset_gpio = (unsigned int)gpio;
 
@@ -399,7 +406,7 @@ static struct camera_common_pdata *ox03a_parse_dt(
 		if (gpio == -EPROBE_DEFER)
 			ret = ERR_PTR(-EPROBE_DEFER);
 		dev_err(dev, "pwdn-gpios not found\n");
-		goto error;
+		gpio = 0;
 	}
 	board_priv_pdata->pwdn_gpio = (unsigned int)gpio;
 
@@ -423,7 +430,6 @@ static struct camera_common_pdata *ox03a_parse_dt(
 
 	return board_priv_pdata;
 
-error:
 	devm_kfree(dev, board_priv_pdata);
 
 	return ret;
