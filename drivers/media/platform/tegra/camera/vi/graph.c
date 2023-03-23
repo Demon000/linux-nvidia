@@ -703,14 +703,11 @@ static int tegra_vi_graph_parse_one(struct tegra_channel *chan,
 		entity->node = remote;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
 		entity->asd.match_type = V4L2_ASYNC_MATCH_FWNODE;
-		dev_dbg(chan->vi->dev, "asd match fwnode type\n");
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 4, 0)
 		entity->asd.match.fwnode.fwnode = of_fwnode_handle(remote_ep);
-		dev_dbg(chan->vi->dev, "asd match fwnode fwnode %pfw\n", of_fwnode_handle(remote_ep));
 #else
 		entity->asd.match.fwnode = of_fwnode_handle(remote_ep);
-		dev_dbg(chan->vi->dev, "asd match fwnode %pfw\n", of_fwnode_handle(remote_ep));
 #endif
 
 #else
@@ -892,13 +889,10 @@ int tegra_vi_graph_init(struct tegra_mc_vi *vi)
 		entity->node = remote;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
 		entity->asd.match_type = V4L2_ASYNC_MATCH_FWNODE;
-		dev_dbg(chan->vi->dev, "asd match fwnode type\n");
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 4, 0)
 		entity->asd.match.fwnode.fwnode = of_fwnode_handle(remote_ep);
-		dev_dbg(chan->vi->dev, "asd match fwnode fwnode %pfw\n", of_fwnode_handle(remote_ep));
 #else
 		entity->asd.match.fwnode = of_fwnode_handle(remote_ep);
-		dev_dbg(chan->vi->dev, "asd match fwnode %pfw\n", of_fwnode_handle(remote_ep));
 #endif
 #else
 		entity->asd.match_type = V4L2_ASYNC_MATCH_OF;
