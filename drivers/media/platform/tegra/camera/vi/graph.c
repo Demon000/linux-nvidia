@@ -514,7 +514,7 @@ static int tegra_vi_graph_notify_bound(struct v4l2_async_notifier *notifier,
 		return 0;
 	}
 
-	dev_err(chan->vi->dev, "no entity for subdev %s\n", subdev->name);
+	dev_err(chan->vi->dev, "no entity for subdev %s %pfw\n", subdev->name, subdev->fwnode);
 	return -EINVAL;
 }
 
