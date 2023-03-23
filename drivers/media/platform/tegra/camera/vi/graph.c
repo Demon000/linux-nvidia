@@ -693,6 +693,9 @@ static int tegra_vi_graph_parse_one(struct tegra_channel *chan,
 			break;
 		}
 
+		entity->skip_notifier = of_property_read_bool(remote, "nv,skip-notifier");
+		entity->skip_link = of_property_read_bool(remote, "nv,skip-link");
+
 		entity->node = remote;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
 		entity->asd.match_type = V4L2_ASYNC_MATCH_FWNODE;
@@ -707,9 +710,6 @@ static int tegra_vi_graph_parse_one(struct tegra_channel *chan,
 		entity->asd.match_type = V4L2_ASYNC_MATCH_OF;
 		entity->asd.match.of.node = remote;
 #endif
-
-		entity->skip_notifier = of_property_read_bool(remote, "nv,skip-notifier");
-		entity->skip_link = of_property_read_bool(remote, "nv,skip-link");
 
 		list_add_tail(&entity->list, &chan->entities);
 		if (!entity->skip_notifier)
@@ -870,6 +870,9 @@ int tegra_vi_graph_init(struct tegra_mc_vi *vi)
 			chan = list_next_entry(chan, list);
 			continue;
 		}
+
+		entity->skip_notifier = of_property_read_bool(remote, "nv,skip-notifier");
+		entity->skip_link = of_property_read_bool(remote, "nv,skip-link");
 
 		/* Add the remote entity of this endpoint */
 		entity->node = remote;
