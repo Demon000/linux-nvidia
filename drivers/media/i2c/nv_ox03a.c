@@ -485,12 +485,56 @@ static struct camera_common_sensor_ops ox03a_common_ops = {
 	.stop_streaming = ox03a_stop_streaming,
 };
 
+static int __ox03a_check_id(struct ox03a *priv)
+{
+	struct camera_common_data *s_data = priv->s_data;
+	struct device *dev = s_data->dev;
+	u8 reg_val[2];
+	int err;
+
+	/* Probe sensor model id registers */
+	err = ox03a_read_reg(s_data, OX03A_PID, &reg_val[0]);
+	if (err) {
+		dev_err(dev, "%s: error during i2c read probe (%d)\n",
+			__func__, err);
+		return err;
+	}
+	err = ox03a_read_reg(s_data, OX03A_VER, &reg_val[1]);
+	if (err) {
+		dev_err(dev, "%s: error during i2c read probe (%d)\n",
+			__func__, err);
+		return err;
+	}
+	if (!((reg_val[0] == 0x58) && reg_val[1] == 0x03)) {
+		dev_err(dev, "%s: invalid sensor model id: %x%x\n",
+			__func__, reg_val[0], reg_val[1]);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int ox03a_check_id(struct ox03a *priv)
+{
+	int retry = 100;
+	int err;
+
+retry:
+	err = __ox03a_check_id(priv);
+	if (err && retry) {
+		retry--;
+		udelay(1000);
+		goto retry;
+	}
+
+	return err;
+}
+
 static int ox03a_board_setup(struct ox03a *priv)
 {
 	struct camera_common_data *s_data = priv->s_data;
 	struct camera_common_pdata *pdata = s_data->pdata;
 	struct device *dev = s_data->dev;
-	u8 reg_val[2];
 	int err = 0;
 
 	if (pdata->mclk_name) {
@@ -507,24 +551,8 @@ static int ox03a_board_setup(struct ox03a *priv)
 		goto err_power_on;
 	}
 
-	/* Probe sensor model id registers */
-	err = ox03a_read_reg(s_data, OX03A_PID, &reg_val[0]);
-	if (err) {
-		dev_err(dev, "%s: error during i2c read probe (%d)\n",
-			__func__, err);
-		goto err_reg_probe;
-	}
-	err = ox03a_read_reg(s_data, OX03A_VER, &reg_val[1]);
-	if (err) {
-		dev_err(dev, "%s: error during i2c read probe (%d)\n",
-			__func__, err);
-		goto err_reg_probe;
-	}
-	if (!((reg_val[0] == 0x58) && reg_val[1] == 0x03))
-		dev_err(dev, "%s: invalid sensor model id: %x%x\n",
-			__func__, reg_val[0], reg_val[1]);
+	err = ox03a_check_id(priv);
 
-err_reg_probe:
 	ox03a_power_off(s_data);
 
 err_power_on:
