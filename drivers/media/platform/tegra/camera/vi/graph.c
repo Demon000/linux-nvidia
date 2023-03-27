@@ -472,6 +472,15 @@ register_device_error:
 	return ret;
 }
 
+static bool tegra_vi_entity_matches_fwnode(struct tegra_vi_graph_entity *entity,
+					   struct fwnode_handle *fwnode)
+{
+	if (fwnode_graph_is_endpoint(fwnode))
+		fwnode = fwnode_graph_get_port_parent(fwnode);
+
+	return entity->node == to_of_node(fwnode);
+}
+
 static int tegra_vi_graph_notify_bound(struct v4l2_async_notifier *notifier,
 				   struct v4l2_subdev *subdev,
 				   struct v4l2_async_subdev *asd)
@@ -487,8 +496,8 @@ static int tegra_vi_graph_notify_bound(struct v4l2_async_notifier *notifier,
 	 */
 	list_for_each_entry(entity, &chan->entities, list) {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
-		if (entity->node != to_of_node(subdev->dev->fwnode) &&
-			entity->node != to_of_node(subdev->fwnode))
+		if (!tegra_vi_entity_matches_fwnode(entity, subdev->dev->fwnode) &&
+		    !tegra_vi_entity_matches_fwnode(entity, subdev->fwnode))
 			continue;
 #else
 		if (entity->node != subdev->dev->of_node &&
