@@ -109,7 +109,6 @@ struct tegra_vi_graph_entity {
 
 	bool skip_notifier;
 	bool skip_link;
-	bool ep_match;
 	struct v4l2_async_subdev asd;
 	struct v4l2_subdev *subdev;
 };

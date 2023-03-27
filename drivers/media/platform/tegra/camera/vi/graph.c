@@ -50,15 +50,11 @@
 
 static struct tegra_vi_graph_entity *
 tegra_vi_graph_find_entity(struct tegra_channel *chan,
-		       struct device_node *node)
+		       const struct device_node *node)
 {
-	struct fwnode_handle *handle = of_fwnode_handle(node);
 	struct tegra_vi_graph_entity *entity;
 
 	list_for_each_entry(entity, &chan->entities, list) {
-		if (entity->ep_match != fwnode_graph_is_endpoint(handle))
-			continue;
-
 		if (entity->node == node)
 			return entity;
 	}
@@ -80,7 +76,6 @@ static int tegra_vi_graph_build_one(struct tegra_channel *chan,
 #else
 	struct v4l2_of_link link;
 #endif
-	struct device_node *remote_ep = NULL;
 	struct device_node *ep = NULL;
 	struct device_node *next;
 	int ret = 0;
@@ -96,20 +91,11 @@ static int tegra_vi_graph_build_one(struct tegra_channel *chan,
 
 	do {
 		/* Get the next endpoint and parse its link. */
-		if (entity->ep_match)
-			next = entity->node;
-		else
-			next = of_graph_get_next_endpoint(entity->node, ep);
+		next = of_graph_get_next_endpoint(entity->node, ep);
 		if (next == NULL)
 			break;
 
 		ep = next;
-
-		remote_ep = of_graph_get_remote_endpoint(ep);
-		if (!remote_ep) {
-			ret = -EINVAL;
-			break;
-		}
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
 		dev_dbg(chan->vi->dev, "processing endpoint %pOF\n",
@@ -206,8 +192,6 @@ static int tegra_vi_graph_build_one(struct tegra_channel *chan,
 #else
 		ent = tegra_vi_graph_find_entity(chan, link.remote_node);
 #endif
-		if (!ent)
-			ent = tegra_vi_graph_find_entity(chan, remote_ep);
 		if (ent == NULL) {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
 			dev_err(chan->vi->dev, "no entity found for %pOF\n",
@@ -283,9 +267,6 @@ static int tegra_vi_graph_build_one(struct tegra_channel *chan,
 				remote->name, remote_pad->index);
 			break;
 		}
-
-		if (entity->ep_match)
-			break;
 	} while (next);
 
 	return ret;
@@ -305,7 +286,6 @@ static int tegra_vi_graph_build_links(struct tegra_channel *chan)
 	struct v4l2_of_link link;
 #endif
 	struct device_node *ep = NULL;
-	struct device_node *remote_ep = NULL;
 	int ret = 0;
 
 	dev_dbg(chan->vi->dev, "creating links for channels\n");
@@ -315,10 +295,6 @@ static int tegra_vi_graph_build_links(struct tegra_channel *chan)
 		return -EINVAL;
 
 	ep = chan->endpoint_node;
-
-	remote_ep = of_graph_get_remote_endpoint(ep);
-	if (!remote_ep)
-		return -EINVAL;
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
 	dev_dbg(chan->vi->dev, "processing endpoint %pOF\n", ep);
@@ -355,8 +331,6 @@ static int tegra_vi_graph_build_links(struct tegra_channel *chan)
 	/* Find the remote entity. */
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
 	ent = tegra_vi_graph_find_entity(chan, to_of_node(link.remote_node));
-	if (!ent)
-		ent = tegra_vi_graph_find_entity(chan, remote_ep);
 	if (ent == NULL) {
 		dev_err(chan->vi->dev, "no entity found for %pOF\n",
 			to_of_node(link.remote_node));
@@ -365,8 +339,6 @@ static int tegra_vi_graph_build_links(struct tegra_channel *chan)
 	}
 #else
 	ent = tegra_vi_graph_find_entity(chan, link.remote_node);
-	if (!ent)
-		ent = tegra_vi_graph_find_entity(chan, remote_ep);
 	if (ent == NULL) {
 		dev_err(chan->vi->dev, "no entity found for %s\n",
 			link.remote_node->full_name);
@@ -679,7 +651,6 @@ static int tegra_vi_graph_parse_one(struct tegra_channel *chan,
 				struct device_node *node)
 {
 	struct device_node *ep = NULL;
-	struct device_node *remote_ep = NULL;
 	struct device_node *next;
 	struct device_node *remote = NULL;
 	struct tegra_vi_graph_entity *entity;
@@ -701,16 +672,9 @@ static int tegra_vi_graph_parse_one(struct tegra_channel *chan,
 			break;
 		}
 
-		remote_ep = of_graph_get_remote_endpoint(ep);
-		if (!remote_ep) {
-			ret = -EINVAL;
-			break;
-		}
-
 		/* skip the vi of_node and duplicated entities */
 		if (remote == chan->vi->dev->of_node ||
 		    tegra_vi_graph_find_entity(chan, remote) ||
-		    tegra_vi_graph_find_entity(chan, remote_ep) ||
 		    !of_device_is_available(remote)) {
 			dev_dbg(chan->vi->dev, "skipped %pfw\n", of_fwnode_handle(ep));
 			if (remote == chan->vi->dev->of_node)
@@ -731,29 +695,20 @@ static int tegra_vi_graph_parse_one(struct tegra_channel *chan,
 
 		entity->skip_notifier = of_property_read_bool(remote, "nv,skip-notifier");
 		entity->skip_link = of_property_read_bool(remote, "nv,skip-link");
-		entity->ep_match = of_property_read_bool(remote, "nv,endpoint-match");
 
 		entity->node = remote;
-		if (entity->ep_match)
-			entity->node = remote_ep;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
 		entity->asd.match_type = V4L2_ASYNC_MATCH_FWNODE;
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 4, 0)
 		entity->asd.match.fwnode.fwnode = of_fwnode_handle(remote);
-		if (entity->ep_match)
-			entity->asd.match.fwnode.fwnode = of_fwnode_handle(remote_ep);
 #else
 		entity->asd.match.fwnode = of_fwnode_handle(remote);
-		if (entity->ep_match)
-			entity->asd.match.fwnode = of_fwnode_handle(remote_ep);
 #endif
 
 #else
 		entity->asd.match_type = V4L2_ASYNC_MATCH_OF;
 		entity->asd.match.of.node = remote;
-		if (entity->ep_match)
-			entity->asd.match.of.node = remote_ep;
 #endif
 
 		list_add_tail(&entity->list, &chan->entities);
@@ -763,7 +718,7 @@ static int tegra_vi_graph_parse_one(struct tegra_channel *chan,
 		dev_dbg(chan->vi->dev, "end now\n");
 
 		/* Find remote entities, which are linked to this entity */
-		ret = tegra_vi_graph_parse_one(chan, remote);
+		ret = tegra_vi_graph_parse_one(chan, entity->node);
 		if (ret < 0)
 			break;
 	} while (next);
@@ -848,7 +803,6 @@ int tegra_vi_graph_init(struct tegra_mc_vi *vi)
 	unsigned int num_subdevs = 0;
 	int ret = 0, i;
 	struct device_node *ep = NULL;
-	struct device_node *remote_ep = NULL;
 	struct device_node *next;
 	struct device_node *remote = NULL;
 	struct tegra_channel *chan;
@@ -917,36 +871,21 @@ int tegra_vi_graph_init(struct tegra_mc_vi *vi)
 			continue;
 		}
 
-		remote_ep = of_graph_get_remote_endpoint(ep);
-		if (!remote_ep) {
-			ret = -EINVAL;
-			break;
-		}
-
 		entity->skip_notifier = of_property_read_bool(remote, "nv,skip-notifier");
 		entity->skip_link = of_property_read_bool(remote, "nv,skip-link");
-		entity->ep_match = of_property_read_bool(remote, "nv,endpoint-match");
 
 		/* Add the remote entity of this endpoint */
 		entity->node = remote;
-		if (entity->ep_match)
-			entity->node = remote_ep;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
 		entity->asd.match_type = V4L2_ASYNC_MATCH_FWNODE;
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 4, 0)
 		entity->asd.match.fwnode.fwnode = of_fwnode_handle(remote);
-		if (entity->ep_match)
-			entity->asd.match.fwnode.fwnode = of_fwnode_handle(remote_ep);
 #else
 		entity->asd.match.fwnode = of_fwnode_handle(remote);
-		if (entity->ep_match)
-			entity->asd.match.fwnode = of_fwnode_handle(remote_ep);
 #endif
 #else
 		entity->asd.match_type = V4L2_ASYNC_MATCH_OF;
 		entity->asd.match.of.node = remote;
-		if (entity->ep_match)
-			entity->asd.match.of.node = remote_ep;
 #endif
 		list_add_tail(&entity->list, &chan->entities);
 		chan->num_subdevs++;
@@ -957,7 +896,7 @@ int tegra_vi_graph_init(struct tegra_mc_vi *vi)
 		dev_dbg(chan->vi->dev, "end now\n");
 
 		/* Parse and add entities on this enpoint/channel */
-		ret = tegra_vi_graph_parse_one(chan, remote);
+		ret = tegra_vi_graph_parse_one(chan, entity->node);
 		if (ret < 0) {
 			dev_info(vi->dev, "graph parse error: %s.\n",
 					entity->node->full_name);
