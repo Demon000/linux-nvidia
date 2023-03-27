@@ -1917,12 +1917,11 @@ int tegra_channel_init_subdevices(struct tegra_channel *chan)
 
 	sd->grp_id = grp_id;
 	chan->grp_id = grp_id;
-	while (index < entity->num_pads) {
+	index = pad->index - 1;
+	while (index >= 0) {
 		pad = &entity->pads[index];
-		if (!(pad->flags & MEDIA_PAD_FL_SINK)) {
-			index++;
-			continue;
-		}
+		if (!(pad->flags & MEDIA_PAD_FL_SINK))
+			break;
 
 		pad = media_entity_remote_pad(pad);
 		if (pad == NULL || !tegra_is_v4l2_subdev(pad->entity))
@@ -1948,6 +1947,8 @@ int tegra_channel_init_subdevices(struct tegra_channel *chan)
 			"vi-output", sd->name);
 		if (len < 0)
 			return -EINVAL;
+
+		index = pad->index - 1;
 	}
 	spec_bar(); /** for num_sd < MAX_SUBDEVICES */
 
