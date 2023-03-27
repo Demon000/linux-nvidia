@@ -56,11 +56,17 @@ tegra_vi_graph_find_entity(struct tegra_channel *chan,
 	struct tegra_vi_graph_entity *entity;
 
 	list_for_each_entry(entity, &chan->entities, list) {
+		dev_err(chan->vi->dev, "cmp %pfw %pfw\n",
+			of_fwnode_handle(node),
+			of_fwnode_handle(entity->node));
+
 		if (entity->ep_match != fwnode_graph_is_endpoint(handle))
 			continue;
 
-		if (entity->node == node)
+		if (entity->node == node) {
+			dev_err(chan->vi->dev, "cmp success\n");
 			return entity;
+		}
 	}
 
 	return NULL;
