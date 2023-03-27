@@ -539,10 +539,6 @@ static int tegra_vi_graph_notify_bound(struct v4l2_async_notifier *notifier,
 		entity->entity = &subdev->entity;
 		entity->subdev = subdev;
 		chan->subdevs_bound++;
-
-		if (chan->subdevs_bound == chan->num_subdevs)
-			tegra_vi_graph_notify_complete(notifier);
-
 		return 0;
 	}
 
@@ -865,9 +861,7 @@ int tegra_vi_graph_init(struct tegra_mc_vi *vi)
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
 	static const struct v4l2_async_notifier_operations vi_chan_notify_ops = {
 		.bound = tegra_vi_graph_notify_bound,
-#if 0
 		.complete = tegra_vi_graph_notify_complete,
-#endif
 		.unbind = tegra_vi_graph_notify_unbind,
 	};
 #endif
@@ -1008,9 +1002,7 @@ int tegra_vi_graph_init(struct tegra_mc_vi *vi)
 		chan->notifier.num_subdevs = num_subdevs;
 		chan->notifier.bound = tegra_vi_graph_notify_bound;
 		chan->notifier.unbind = tegra_vi_graph_notify_unbind;
-#if 0
 		chan->notifier.complete = tegra_vi_graph_notify_complete;
-#endif
 #else
 		v4l2_async_notifier_init(&chan->notifier);
 		list_for_each_entry(entity, &chan->entities, list) {
