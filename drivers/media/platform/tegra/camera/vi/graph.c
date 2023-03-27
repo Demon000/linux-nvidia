@@ -735,9 +735,9 @@ static int tegra_vi_graph_parse_one(struct tegra_channel *chan,
 		entity->skip_link = of_property_read_bool(remote, "nv,skip-link");
 		entity->ep_match = of_property_read_bool(remote, "nv,endpoint-match");
 
-		dev_err(chan->vi->dev, "%pfw skip notifier: %u\n", of_fwnode_handle(remote_ep), entity->skip_notifier);
-		dev_err(chan->vi->dev, "%pfw skip link: %u\n", of_fwnode_handle(remote_ep), entity->skip_link);
-		dev_err(chan->vi->dev, "%pfw ep match: %u\n", of_fwnode_handle(remote_ep), entity->ep_match);
+		dev_err(chan->vi->dev, "%pfw skip notifier: %u\n", remote_ep, entity->skip_notifier);
+		dev_err(chan->vi->dev, "%pfw skip link: %u\n", remote_ep, entity->skip_link);
+		dev_err(chan->vi->dev, "%pfw ep match: %u\n", remote_ep, entity->ep_match);
 
 		entity->node = remote;
 		if (entity->ep_match)
@@ -933,9 +933,9 @@ int tegra_vi_graph_init(struct tegra_mc_vi *vi)
 		entity->skip_link = of_property_read_bool(remote, "nv,skip-link");
 		entity->ep_match = of_property_read_bool(remote, "nv,endpoint-match");
 
-		dev_err(chan->vi->dev, "%pfw skip notifier: %u\n", of_fwnode_handle(remote_ep), entity->skip_notifier);
-		dev_err(chan->vi->dev, "%pfw skip link: %u\n", of_fwnode_handle(remote_ep), entity->skip_link);
-		dev_err(chan->vi->dev, "%pfw ep match: %u\n", of_fwnode_handle(remote_ep), entity->ep_match);
+		dev_err(chan->vi->dev, "%pfw skip notifier: %u\n", remote_ep, entity->skip_notifier);
+		dev_err(chan->vi->dev, "%pfw skip link: %u\n", remote_ep, entity->skip_link);
+		dev_err(chan->vi->dev, "%pfw ep match: %u\n", remote_ep, entity->ep_match);
 
 		/* Add the remote entity of this endpoint */
 		entity->node = remote;
