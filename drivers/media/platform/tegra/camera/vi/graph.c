@@ -738,6 +738,8 @@ static int tegra_vi_graph_parse_one(struct tegra_channel *chan,
 		}
 
 		entity->skip_notifier = of_property_read_bool(remote, "nv,skip-notifier");
+		if (!entity->skip_notifier)
+			entity->skip_notifier = of_property_read_bool(remote_ep, "nv,skip-notifier");
 		entity->skip_link = of_property_read_bool(remote, "nv,skip-link");
 		entity->ep_match = of_property_read_bool(remote, "nv,endpoint-match");
 
@@ -940,6 +942,8 @@ int tegra_vi_graph_init(struct tegra_mc_vi *vi)
 		dev_dbg(vi->dev, "handling remote endpoint %pfw\n", of_fwnode_handle(remote_ep));
 
 		entity->skip_notifier = of_property_read_bool(remote, "nv,skip-notifier");
+		if (!entity->skip_notifier)
+			entity->skip_notifier = of_property_read_bool(remote_ep, "nv,skip-notifier");
 		entity->skip_link = of_property_read_bool(remote, "nv,skip-link");
 		entity->ep_match = of_property_read_bool(remote, "nv,endpoint-match");
 
