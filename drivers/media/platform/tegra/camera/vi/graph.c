@@ -711,6 +711,8 @@ static int tegra_vi_graph_parse_one(struct tegra_channel *chan,
 			break;
 		}
 
+		dev_dbg(chan->vi->dev, "handling remote endpoint %pfw\n", of_fwnode_handle(remote_ep));
+
 		/* skip the vi of_node and duplicated entities */
 		if (remote == chan->vi->dev->of_node ||
 		    tegra_vi_graph_find_entity(chan, remote) ||
@@ -739,9 +741,9 @@ static int tegra_vi_graph_parse_one(struct tegra_channel *chan,
 		entity->skip_link = of_property_read_bool(remote, "nv,skip-link");
 		entity->ep_match = of_property_read_bool(remote, "nv,endpoint-match");
 
-		dev_err(chan->vi->dev, "%pfw skip notifier: %u\n", of_fwnode_handle(remote_ep), entity->skip_notifier);
-		dev_err(chan->vi->dev, "%pfw skip link: %u\n", of_fwnode_handle(remote_ep), entity->skip_link);
-		dev_err(chan->vi->dev, "%pfw ep match: %u\n", of_fwnode_handle(remote_ep), entity->ep_match);
+		dev_err(chan->vi->dev, "skip notifier: %u\n", entity->skip_notifier);
+		dev_err(chan->vi->dev, "skip link: %u\n", entity->skip_link);
+		dev_err(chan->vi->dev, "ep match: %u\n", entity->ep_match);
 
 		entity->node = remote;
 		if (entity->ep_match)
@@ -935,13 +937,15 @@ int tegra_vi_graph_init(struct tegra_mc_vi *vi)
 			break;
 		}
 
+		dev_dbg(vi->dev, "handling remote endpoint %pfw\n", of_fwnode_handle(remote_ep));
+
 		entity->skip_notifier = of_property_read_bool(remote, "nv,skip-notifier");
 		entity->skip_link = of_property_read_bool(remote, "nv,skip-link");
 		entity->ep_match = of_property_read_bool(remote, "nv,endpoint-match");
 
-		dev_err(chan->vi->dev, "%pfw skip notifier: %u\n", of_fwnode_handle(remote_ep), entity->skip_notifier);
-		dev_err(chan->vi->dev, "%pfw skip link: %u\n", of_fwnode_handle(remote_ep), entity->skip_link);
-		dev_err(chan->vi->dev, "%pfw ep match: %u\n", of_fwnode_handle(remote_ep), entity->ep_match);
+		dev_err(chan->vi->dev, "skip notifier: %u\n", entity->skip_notifier);
+		dev_err(chan->vi->dev, "skip link: %u\n", entity->skip_link);
+		dev_err(chan->vi->dev, "ep match: %u\n", entity->ep_match);
 
 		/* Add the remote entity of this endpoint */
 		entity->node = remote;
@@ -986,6 +990,8 @@ int tegra_vi_graph_init(struct tegra_mc_vi *vi)
 
 		num_subdevs = chan->num_subdevs;
 
+		dev_dbg(chan->vi->dev, "registering notifier for %u subdevs\n", num_subdevs);
+
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 4, 0)
 		subdevs = devm_kzalloc(vi->dev, sizeof(*subdevs) * num_subdevs,
 			       GFP_KERNEL);
@@ -998,8 +1004,12 @@ int tegra_vi_graph_init(struct tegra_mc_vi *vi)
 		i = 0;
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 4, 0)
 		list_for_each_entry(entity, &chan->entities, list) {
-			if (entity->skip_notifier)
+			if (entity->skip_notifier) {
+				dev_dbg(chan->vi->dev, "skipping notifier for %pfw\n", entity->asd.match.fwnode);
 				continue;
+			}
+
+			dev_dbg(chan->vi->dev, "registering notifier for %pfw\n", entity->asd.match.fwnode);
 
 			subdevs[i++] = &entity->asd;
 		}
@@ -1014,8 +1024,12 @@ int tegra_vi_graph_init(struct tegra_mc_vi *vi)
 #else
 		v4l2_async_notifier_init(&chan->notifier);
 		list_for_each_entry(entity, &chan->entities, list) {
-			if (entity->skip_notifier)
+			if (entity->skip_notifier) {
+				dev_dbg(chan->vi->dev, "skipping notifier for %pfw\n", entity->asd.match.fwnode);
 				continue;
+			}
+
+			dev_dbg(chan->vi->dev, "registering notifier for %pfw\n", entity->asd.match.fwnode);
 
 			v4l2_async_notifier_add_subdev(&chan->notifier, &entity->asd);
 		}
