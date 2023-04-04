@@ -51,6 +51,7 @@ struct ox03a {
 	struct v4l2_subdev		*subdev;
 	struct camera_common_data	*s_data;
 	struct tegracam_device		*tc_dev;
+	struct dentry			*debugfs_root;
 };
 
 static const struct regmap_config sensor_regmap_config = {
@@ -576,6 +577,39 @@ static const struct v4l2_subdev_internal_ops ox03a_subdev_internal_ops = {
 	.open = ox03a_open,
 };
 
+static int ox03a_dump_regs(struct ox03a *priv, struct seq_file *m)
+{
+	static const struct {
+		unsigned int start;
+		unsigned int end;
+	} registers[] = {
+		{0x0000, 0x6000},
+	};
+	unsigned int i, j;
+	int ret;
+	u8 val;
+
+	for (i = 0; i < ARRAY_SIZE(registers); i++) {
+		for (j = registers[i].start; j <= registers[i].end; j++) {
+			ret = ox03a_read_reg(priv->s_data, j, &val);
+			if (ret)
+				return -EINVAL;
+
+			seq_printf(m, "0x%04x: 0x%02x\n", j, val);
+		}
+	}
+
+	return 0;
+}
+
+static int ox03a_dump_regs_show(struct seq_file *m, void *private)
+{
+	struct ox03a *priv = m->private;
+
+	return ox03a_dump_regs(priv, m);
+}
+DEFINE_SHOW_ATTRIBUTE(ox03a_dump_regs);
+
 static int ox03a_probe(struct i2c_client *client,
 	const struct i2c_device_id *id)
 {
@@ -606,6 +640,10 @@ static int ox03a_probe(struct i2c_client *client,
 	tc_dev->sensor_ops = &ox03a_common_ops;
 	tc_dev->v4l2sd_internal_ops = &ox03a_subdev_internal_ops;
 	tc_dev->tcctrl_ops = &ox03a_ctrl_ops;
+
+	priv->debugfs_root = debugfs_create_dir(dev_name(&client->dev), NULL);
+	debugfs_create_file("dump_regs", 0600, priv->debugfs_root, priv,
+			    &ox03a_dump_regs_fops);
 
 	err = tegracam_device_register(tc_dev);
 	if (err) {
