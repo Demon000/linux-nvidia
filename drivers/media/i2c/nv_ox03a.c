@@ -57,7 +57,6 @@ struct ox03a {
 static const struct regmap_config sensor_regmap_config = {
 	.reg_bits = 16,
 	.val_bits = 8,
-	.cache_type = REGCACHE_RBTREE,
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 4, 0)
 	.use_single_rw = true,
 #else
