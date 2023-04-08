@@ -52,6 +52,9 @@ struct ox03a {
 	struct camera_common_data	*s_data;
 	struct tegracam_device		*tc_dev;
 	struct dentry			*debugfs_root;
+	unsigned			cached_reg_addr;
+	char				read_buf[20];
+	unsigned int			read_buf_len;
 };
 
 static const struct regmap_config sensor_regmap_config = {
@@ -656,6 +659,73 @@ static int ox03a_dump_regs_show(struct seq_file *m, void *private)
 }
 DEFINE_SHOW_ATTRIBUTE(ox03a_dump_regs);
 
+static ssize_t ox03a_debugfs_read_reg(struct file *file, char __user *userbuf,
+				      size_t count, loff_t *ppos)
+{
+	struct ox03a *priv = file->private_data;
+	u8 val = 0;
+	int ret;
+
+	if (*ppos > 0)
+		return simple_read_from_buffer(userbuf, count, ppos,
+					       priv->read_buf,
+					       priv->read_buf_len);
+
+	ret = ox03a_read_reg(priv->s_data, priv->cached_reg_addr, &val);
+	if (ret) {
+		dev_err(priv->s_data->dev, "%s: read failed\n", __func__);
+		return ret;
+	}
+
+	priv->read_buf_len = snprintf(priv->read_buf,
+				      sizeof(priv->read_buf),
+				      "0x%02X\n", val);
+
+	return simple_read_from_buffer(userbuf, count, ppos,
+				       priv->read_buf,
+				       priv->read_buf_len);
+}
+
+static ssize_t ox03a_debugfs_write_reg(struct file *file,
+				       const char __user *userbuf,
+				       size_t count, loff_t *ppos)
+{
+	struct ox03a *priv = file->private_data;
+	unsigned reg, val;
+	char buf[80];
+	int ret;
+
+	count = min_t(size_t, count, (sizeof(buf)-1));
+	if (copy_from_user(buf, userbuf, count))
+		return -EFAULT;
+
+	buf[count] = 0;
+
+	ret = sscanf(buf, "%i %i", &reg, &val);
+
+	if (ret != 1 && ret != 2)
+		return -EINVAL;
+
+	priv->cached_reg_addr = reg;
+
+	if (ret == 1)
+		return count;
+
+	ret = ox03a_write_reg(priv->s_data, reg, val);
+	if (ret) {
+		dev_err(priv->s_data->dev, "%s: write failed\n", __func__);
+		return ret;
+	}
+
+	return count;
+}
+
+static const struct file_operations ox03a_reg_fops = {
+	.open = simple_open,
+	.read = ox03a_debugfs_read_reg,
+	.write = ox03a_debugfs_write_reg,
+};
+
 static int ox03a_probe(struct i2c_client *client,
 	const struct i2c_device_id *id)
 {
@@ -690,6 +760,8 @@ static int ox03a_probe(struct i2c_client *client,
 	priv->debugfs_root = debugfs_create_dir(dev_name(&client->dev), NULL);
 	debugfs_create_file("dump_regs", 0600, priv->debugfs_root, priv,
 			    &ox03a_dump_regs_fops);
+	debugfs_create_file("reg", 0600, priv->debugfs_root, priv,
+			    &ox03a_reg_fops);
 
 	err = tegracam_device_register(tc_dev);
 	if (err) {
