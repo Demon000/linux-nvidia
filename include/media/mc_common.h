@@ -110,6 +110,7 @@ struct tegra_vi_graph_entity {
 	bool skip_notifier;
 	bool skip_link;
 	bool skip_s_stream;
+	bool for_calls;
 	struct v4l2_async_subdev asd;
 	struct v4l2_subdev *subdev;
 };
@@ -165,6 +166,7 @@ struct tegra_channel {
 	struct tegra_mc_vi *vi;
 	struct v4l2_subdev *subdev[MAX_SUBDEVICES];
 	struct v4l2_subdev *subdev_on_csi;
+	struct v4l2_subdev *subdev_for_calls;
 
 	struct v4l2_ctrl_handler ctrl_handler;
 	struct v4l2_pix_format format;
