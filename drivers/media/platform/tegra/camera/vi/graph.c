@@ -648,6 +648,7 @@ static int tegra_vi_graph_parse_one(struct tegra_channel *chan,
 
 		entity->skip_notifier = of_property_read_bool(remote, "nv,skip-notifier");
 		entity->skip_link = of_property_read_bool(remote, "nv,skip-link");
+		entity->skip_s_stream = of_property_read_bool(remote, "nv,skip-s-stream");
 
 		entity->node = remote;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
@@ -824,6 +825,7 @@ int tegra_vi_graph_init(struct tegra_mc_vi *vi)
 
 		entity->skip_notifier = of_property_read_bool(remote, "nv,skip-notifier");
 		entity->skip_link = of_property_read_bool(remote, "nv,skip-link");
+		entity->skip_s_stream = of_property_read_bool(remote, "nv,skip-s-stream");
 
 		/* Add the remote entity of this endpoint */
 		entity->node = remote;
