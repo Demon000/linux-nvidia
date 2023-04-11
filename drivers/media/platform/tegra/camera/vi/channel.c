@@ -102,6 +102,22 @@ bool tegra_channel_skip_sd_s_stream(struct tegra_channel *chan,
 
 	dev_err(&chan->video->dev,
 		"failed to find entity for subdev %s\n", sd->name);
+
+	return false;
+}
+
+bool tegra_channel_for_calls(struct tegra_channel *chan,
+			     const struct v4l2_subdev *sd)
+{
+	struct tegra_vi_graph_entity *entity =
+		tegra_channel_find_subdev_entity(chan, sd);
+
+	if (entity)
+		return entity->for_calls;
+
+	dev_err(&chan->video->dev,
+		"failed to find entity for subdev %s\n", sd->name);
+
 	return false;
 }
 
@@ -333,7 +349,7 @@ static void tegra_channel_update_format(struct tegra_channel *chan,
 static void tegra_channel_fmts_bitmap_init(struct tegra_channel *chan)
 {
 	int ret, pixel_format_index = 0, init_code = 0;
-	struct v4l2_subdev *subdev = chan->subdev_on_csi;
+	struct v4l2_subdev *subdev = chan->subdev_for_calls;
 	struct v4l2_subdev_format fmt = {
 		.pad = 0,
 		.which = V4L2_SUBDEV_FORMAT_ACTIVE,
@@ -1099,7 +1115,7 @@ tegra_channel_enum_framesizes(struct file *file, void *fh,
 			      struct v4l2_frmsizeenum *sizes)
 {
 	struct tegra_channel *chan = video_drvdata(file);
-	struct v4l2_subdev *sd = chan->subdev_on_csi;
+	struct v4l2_subdev *sd = chan->subdev_for_calls;
 	struct v4l2_subdev_frame_size_enum fse;
 	struct v4l2_subdev_pad_config cfg = {};
 	int ret = 0;
@@ -1128,7 +1144,7 @@ tegra_channel_enum_frameintervals(struct file *file, void *fh,
 			      struct v4l2_frmivalenum *intervals)
 {
 	struct tegra_channel *chan = video_drvdata(file);
-	struct v4l2_subdev *sd = chan->subdev_on_csi;
+	struct v4l2_subdev *sd = chan->subdev_for_calls;
 	struct v4l2_subdev_frame_interval_enum fie;
 	struct v4l2_subdev_pad_config cfg = {};
 	int ret = 0;
@@ -1178,7 +1194,7 @@ static int
 tegra_channel_g_edid(struct file *file, void *fh, struct v4l2_edid *edid)
 {
 	struct tegra_channel *chan = video_drvdata(file);
-	struct v4l2_subdev *sd = chan->subdev_on_csi;
+	struct v4l2_subdev *sd = chan->subdev_for_calls;
 
 	if (!v4l2_subdev_has_op(sd, pad, get_edid))
 		return -ENOTTY;
@@ -1190,7 +1206,7 @@ static int
 tegra_channel_s_edid(struct file *file, void *fh, struct v4l2_edid *edid)
 {
 	struct tegra_channel *chan = video_drvdata(file);
-	struct v4l2_subdev *sd = chan->subdev_on_csi;
+	struct v4l2_subdev *sd = chan->subdev_for_calls;
 
 	if (!v4l2_subdev_has_op(sd, pad, set_edid))
 		return -ENOTTY;
@@ -1204,7 +1220,7 @@ tegra_channel_g_dv_timings(struct file *file, void *fh,
 {
 	struct tegra_channel *chan = video_drvdata(file);
 
-	if (!v4l2_subdev_has_op(chan->subdev_on_csi, video, g_dv_timings))
+	if (!v4l2_subdev_has_op(chan->subdev_for_calls, video, g_dv_timings))
 		return -ENOTTY;
 
 	return v4l2_device_call_until_err(chan->video->v4l2_dev,
@@ -1220,7 +1236,7 @@ tegra_channel_s_dv_timings(struct file *file, void *fh,
 	struct v4l2_dv_timings curr_timings;
 	int ret;
 
-	if (!v4l2_subdev_has_op(chan->subdev_on_csi, video, s_dv_timings))
+	if (!v4l2_subdev_has_op(chan->subdev_for_calls, video, s_dv_timings))
 		return -ENOTTY;
 
 	ret = tegra_channel_g_dv_timings(file, fh, &curr_timings);
@@ -1253,7 +1269,7 @@ tegra_channel_query_dv_timings(struct file *file, void *fh,
 {
 	struct tegra_channel *chan = video_drvdata(file);
 
-	if (!v4l2_subdev_has_op(chan->subdev_on_csi, video, query_dv_timings))
+	if (!v4l2_subdev_has_op(chan->subdev_for_calls, video, query_dv_timings))
 		return -ENOTTY;
 
 	return v4l2_device_call_until_err(chan->video->v4l2_dev,
@@ -1265,7 +1281,7 @@ tegra_channel_enum_dv_timings(struct file *file, void *fh,
 		struct v4l2_enum_dv_timings *timings)
 {
 	struct tegra_channel *chan = video_drvdata(file);
-	struct v4l2_subdev *sd = chan->subdev_on_csi;
+	struct v4l2_subdev *sd = chan->subdev_for_calls;
 
 	if (!v4l2_subdev_has_op(sd, pad, enum_dv_timings))
 		return -ENOTTY;
@@ -1278,7 +1294,7 @@ tegra_channel_dv_timings_cap(struct file *file, void *fh,
 		struct v4l2_dv_timings_cap *cap)
 {
 	struct tegra_channel *chan = video_drvdata(file);
-	struct v4l2_subdev *sd = chan->subdev_on_csi;
+	struct v4l2_subdev *sd = chan->subdev_for_calls;
 
 	if (!v4l2_subdev_has_op(sd, pad, dv_timings_cap))
 		return -ENOTTY;
@@ -1907,7 +1923,7 @@ static void tegra_channel_populate_dev_info(struct tegra_camera_dev_info *cdev,
 		if (chan->pg_mode) {
 			/* TPG mode */
 			cdev->sensor_type = SENSORTYPE_VIRTUAL;
-		} else if (v4l2_subdev_has_op(chan->subdev_on_csi,
+		} else if (v4l2_subdev_has_op(chan->subdev_for_calls,
 						video, g_dv_timings)) {
 			/* HDMI-IN */
 			cdev->sensor_type = SENSORTYPE_OTHER;
@@ -1999,6 +2015,9 @@ int tegra_channel_init_subdevices(struct tegra_channel *chan)
 			"vi-output", sd->name);
 		if (len < 0)
 			return -EINVAL;
+
+		if (tegra_channel_for_calls(chan, sd))
+			chan->subdev_for_calls = sd;
 	}
 	spec_bar(); /** for num_sd < MAX_SUBDEVICES */
 
@@ -2008,6 +2027,8 @@ int tegra_channel_init_subdevices(struct tegra_channel *chan)
 	 * Mark that subdev as subdev_on_csi
 	 */
 	chan->subdev_on_csi = sd;
+	if (!chan->subdev_for_calls)
+		chan->subdev_for_calls = chan->subdev_on_csi;
 
 	/* initialize the available formats */
 	if (chan->num_subdevs)
@@ -2091,7 +2112,7 @@ __tegra_channel_try_format(struct tegra_channel *chan,
 {
 	const struct tegra_video_format *vfmt;
 	struct v4l2_subdev_format fmt;
-	struct v4l2_subdev *sd = chan->subdev_on_csi;
+	struct v4l2_subdev *sd = chan->subdev_for_calls;
 	struct v4l2_subdev_pad_config cfg = {};
 	int ret = 0;
 
@@ -2139,7 +2160,7 @@ __tegra_channel_set_format(struct tegra_channel *chan,
 {
 	const struct tegra_video_format *vfmt;
 	struct v4l2_subdev_format fmt;
-	struct v4l2_subdev *sd = chan->subdev_on_csi;
+	struct v4l2_subdev *sd = chan->subdev_for_calls;
 	struct v4l2_subdev_pad_config cfg = {};
 	int ret = 0;
 
@@ -2208,7 +2229,7 @@ static int
 tegra_channel_enum_input(struct file *file, void *fh, struct v4l2_input *inp)
 {
 	struct tegra_channel *chan = video_drvdata(file);
-	struct v4l2_subdev *sd_on_csi = chan->subdev_on_csi;
+	struct v4l2_subdev *sd_on_csi = chan->subdev_for_calls;
 	int ret, len;
 
 	if (inp->index)
