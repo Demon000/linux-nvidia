@@ -77,6 +77,34 @@ static bool tegra_channel_verify_focuser(struct tegra_channel *chan)
 	return (focuser != NULL);
 }
 
+static struct tegra_vi_graph_entity *
+tegra_channel_find_subdev_entity(struct tegra_channel *chan,
+				 const struct v4l2_subdev *sd)
+{
+	struct tegra_vi_graph_entity *entity;
+
+	list_for_each_entry(entity, &chan->entities, list) {
+		if (entity->node == to_of_node(sd->fwnode))
+			return entity;
+	}
+
+	return NULL;
+}
+
+bool tegra_channel_skip_sd_s_stream(struct tegra_channel *chan,
+				    const struct v4l2_subdev *sd)
+{
+	struct tegra_vi_graph_entity *entity =
+		tegra_channel_find_subdev_entity(chan, sd);
+
+	if (entity)
+		return entity->skip_s_stream;
+
+	dev_err(&chan->video->dev,
+		"failed to find entity for subdev %s\n", sd->name);
+	return false;
+}
+
 static void gang_buffer_offsets(struct tegra_channel *chan)
 {
 	int i;
@@ -915,6 +943,9 @@ int tegra_channel_set_stream(struct tegra_channel *chan, bool on)
 			for (num_sd = 0; num_sd < chan->num_subdevs; num_sd++) {
 				sd = chan->subdev[num_sd];
 
+				if (tegra_channel_skip_sd_s_stream(chan, sd))
+					continue;
+
 				trace_tegra_channel_set_stream(sd->name, on);
 				err = v4l2_subdev_call(sd, video, s_stream, on);
 				if (!ret && err < 0 && err != -ENOIOCTLCMD)
@@ -931,6 +962,10 @@ int tegra_channel_set_stream(struct tegra_channel *chan, bool on)
 						num_sd < chan->num_subdevs;
 								num_sd++) {
 						sd = chan->subdev[num_sd];
+
+						if (tegra_channel_skip_sd_s_stream(chan, sd))
+							continue;
+
 						trace_tegra_channel_set_stream(
 							sd->name, false);
 						err = v4l2_subdev_call(sd,
@@ -945,6 +980,9 @@ int tegra_channel_set_stream(struct tegra_channel *chan, bool on)
 	} else {
 		for (num_sd = chan->num_subdevs - 1; num_sd >= 0; num_sd--) {
 			sd = chan->subdev[num_sd];
+
+			if (tegra_channel_skip_sd_s_stream(chan, sd))
+				continue;
 
 			trace_tegra_channel_set_stream(sd->name, on);
 			err = v4l2_subdev_call(sd, video, s_stream, on);
