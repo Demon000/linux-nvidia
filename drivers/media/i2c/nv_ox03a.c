@@ -52,6 +52,7 @@ struct ox03a {
 	struct camera_common_data	*s_data;
 	struct tegracam_device		*tc_dev;
 	struct dentry			*debugfs_root;
+	int				mode;
 	unsigned			cached_reg_addr;
 	char				read_buf[20];
 	unsigned int			read_buf_len;
@@ -445,15 +446,17 @@ static int ox03a_set_mode(struct tegracam_device *tc_dev)
 
 	int err = 0;
 
-	err = ox03a_write_table(priv, mode_table[OX03A_MODE_COMMON]);
-	if (err)
-		return err;
-
 	if (s_data->mode < 0)
 		return -EINVAL;
+
+	if (s_data->mode == priv->mode)
+		return 0;
+
 	err = ox03a_write_table(priv, mode_table[s_data->mode]);
 	if (err)
 		return err;
+
+	priv->mode = s_data->mode;
 
 	return 0;
 }
@@ -555,7 +558,21 @@ static int ox03a_board_setup(struct ox03a *priv)
 	}
 
 	err = ox03a_check_id(priv);
+	if (err)
+		goto err_check_id;
 
+	err = ox03a_write_table(priv, mode_table[OX03A_MODE_COMMON]);
+	if (err)
+		goto err_write_table;
+
+	priv->mode = -1;
+	s_data->mode = OX03A_MODE_1920x1280_30FPS;
+	err = ox03a_set_mode(priv->tc_dev);
+	if (err)
+		goto err_write_table;
+
+err_write_table:
+err_check_id:
 	ox03a_power_off(s_data);
 
 err_power_on:
