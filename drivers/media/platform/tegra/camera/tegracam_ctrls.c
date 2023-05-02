@@ -791,8 +791,11 @@ static int tegracam_check_ctrl_ops(
 
 	*numctrls = sensor_ops + sensor_ex_ops + mode_ops + string_ops + compound_ops;
 
-	*numctrls += default_ops;
-	*numctrls += default_ex_ops;
+	/* default controls are only needed if sensor controls are registered */
+	if (sensor_ops > 0)
+		*numctrls += default_ops;
+	if (sensor_ex_ops > 0)
+		*numctrls += default_ex_ops;
 
 	return 0;
 }
