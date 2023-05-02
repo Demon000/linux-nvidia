@@ -43,6 +43,9 @@ static const struct of_device_id ox03a_of_match[] = {
 MODULE_DEVICE_TABLE(of, ox03a_of_match);
 
 static const u32 ctrl_cid_list[] = {
+	TEGRA_CAMERA_CID_GAIN,
+	TEGRA_CAMERA_CID_EXPOSURE,
+	TEGRA_CAMERA_CID_FRAME_RATE,
 	TEGRA_CAMERA_CID_SENSOR_MODE_ID,
 };
 
@@ -106,9 +109,27 @@ static int ox03a_set_group_hold(struct tegracam_device *tc_dev, bool val)
 	return 0;
 }
 
+static int ox03a_set_gain(struct tegracam_device *tc_dev, s64 val)
+{
+	return 0;
+}
+
+static int ox03a_set_frame_rate(struct tegracam_device *tc_dev, s64 val)
+{
+	return 0;
+}
+
+static int ox03a_set_exposure(struct tegracam_device *tc_dev, s64 val)
+{
+	return 0;
+}
+
 static struct tegracam_ctrl_ops ox03a_ctrl_ops = {
 	.numctrls = ARRAY_SIZE(ctrl_cid_list),
 	.ctrl_cid_list = ctrl_cid_list,
+	.set_gain = ox03a_set_gain,
+	.set_exposure = ox03a_set_exposure,
+	.set_frame_rate = ox03a_set_frame_rate,
 	.set_group_hold = ox03a_set_group_hold,
 };
 
