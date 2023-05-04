@@ -123,6 +123,21 @@ enum switch_state {
 	SWITCH_ON,
 };
 
+enum awb_gain_type {
+	HCG_R,
+	HCG_Gb,
+	HCG_Gr,
+	HCG_B,
+	LCG_R,
+	LCG_Gb,
+	LCG_Gr,
+	LCG_B,
+	VS_R,
+	VS_Gb,
+	VS_Gr,
+	VS_B,
+};
+
 static const s64 switch_ctrl_qmenu[] = {
 	SWITCH_OFF, SWITCH_ON
 };
@@ -196,6 +211,7 @@ struct tegracam_ctrl_ops {
 	const u32 *ctrl_cid_list;
 	bool is_blob_supported;
 	int (*set_gain)(struct tegracam_device *tc_dev, s64 val);
+	int (*set_awb_gain)(struct tegracam_device *tc_dev, enum awb_gain_type type, s64 val);
 	int (*set_exposure)(struct tegracam_device *tc_dev, s64 val);
 	int (*set_exposure_short)(struct tegracam_device *tc_dev, s64 val);
 	int (*set_frame_rate)(struct tegracam_device *tc_dev, s64 val);
