@@ -62,28 +62,36 @@ static const struct regmap_config sensor_regmap_config = {
 };
 
 static inline int nv_cam_read_reg(struct camera_common_data *s_data,
-	u16 addr, u8 *val)
+				  u16 addr, u8 *val)
 {
-	int err = 0;
-	u32 reg_val = 0;
+	unsigned int reg_val;
+	int ret;
 
-	err = regmap_read(s_data->regmap, addr, &reg_val);
-	*val = reg_val & 0xff;
+	ret = regmap_read(s_data->regmap, addr, &reg_val);
+	if (ret) {
+		dev_err(s_data->dev, "%s: i2c read 0x%x failed: %d",
+			__func__, addr, ret);
+		return ret;
+	}
 
-	return err;
+	*val = reg_val;
+
+	return 0;
 }
 
 static inline int nv_cam_write_reg(struct camera_common_data *s_data,
-	u16 addr, u8 val)
+				   u16 addr, u8 val)
 {
-	int err = 0;
+	int ret;
 
-	err = regmap_write(s_data->regmap, addr, val);
-	if (err)
-		dev_err(s_data->dev, "%s: i2c write failed, 0x%x = %x",
-			__func__, addr, val);
+	ret = regmap_write(s_data->regmap, addr, val);
+	if (ret) {
+		dev_err(s_data->dev, "%s: i2c write 0x%x = 0x%x failed: %d",
+			__func__, addr, val, ret);
+		return ret;
+	}
 
-	return err;
+	return 0;
 }
 
 static int nv_cam_write_table(struct nv_cam *priv, const nv_cam_reg table[])
