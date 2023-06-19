@@ -461,6 +461,10 @@ static struct camera_common_pdata *nv_cam_parse_dt(
 		of_property_read_bool(np, "has-eeprom");
 
 	return board_priv_pdata;
+
+	devm_kfree(dev, board_priv_pdata);
+
+	return ret;
 }
 
 static int nv_cam_set_mode(struct tegracam_device *tc_dev)
