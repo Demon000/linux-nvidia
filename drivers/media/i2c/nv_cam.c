@@ -18,9 +18,6 @@
 #include <media/tegra_v4l2_camera.h>
 #include <media/tegracam_core.h>
 
-#define NV_CAM_PID 0x300A
-#define NV_CAM_VER 0x300B
-
 static const u32 ctrl_cid_list[] = {
 	TEGRA_CAMERA_CID_GAIN,
 	TEGRA_CAMERA_CID_EXPOSURE,
@@ -53,6 +50,7 @@ struct nv_cam {
 
 	unsigned int			num_chip_id_regs;
 	u32				chip_id_regs[MAX_CHIP_ID_REGS];
+	u32				chip_id_masks[MAX_CHIP_ID_REGS];
 	u32				chip_id_vals[MAX_CHIP_ID_REGS];
 };
 
@@ -531,42 +529,55 @@ static struct camera_common_sensor_ops nv_cam_common_ops = {
 	.stop_streaming = nv_cam_stop_streaming,
 };
 
-static int __nv_cam_check_id(struct nv_cam *priv)
+static int __nv_cam_check_id(struct nv_cam *priv, unsigned int i)
 {
 	struct camera_common_data *s_data = priv->s_data;
 	struct device *dev = s_data->dev;
-	u8 reg_val[2];
-	int err;
+	unsigned int reg, mask, val;
+	int ret;
 
-	/* Probe sensor model id registers */
-	err = nv_cam_read_reg(s_data, NV_CAM_PID, &reg_val[0]);
-	if (err) {
-		dev_err(dev, "%s: error during i2c read probe (%d)\n",
-			__func__, err);
-		return err;
-	}
-	err = nv_cam_read_reg(s_data, NV_CAM_VER, &reg_val[1]);
-	if (err) {
-		dev_err(dev, "%s: error during i2c read probe (%d)\n",
-			__func__, err);
-		return err;
-	}
-	if (!((reg_val[0] == 0x58) && reg_val[1] == 0x03)) {
-		dev_err(dev, "%s: invalid sensor model id: %x%x\n",
-			__func__, reg_val[0], reg_val[1]);
+	reg = priv->chip_id_regs[i];
+	mask = priv->chip_id_masks[i];
+	val = priv->chip_id_vals[i];
+
+	ret = nv_cam_read_reg(s_data, reg, &reg_val);
+	if (ret)
+		return ret;
+
+	val &= mask;
+	reg_val &= mask;
+
+	if (reg_val !== val) {
+		dev_err(dev, "Invalid chip id 0x%x, expected 0x%x\n",
+			reg_val, val);
 		return -EINVAL;
 	}
 
 	return 0;
 }
 
-static int nv_cam_check_id(struct nv_cam *priv)
+static int __nv_cam_check_ids(struct nv_cam *priv)
+{
+	unsigned int reg_val;
+	unsigned int i;
+	int ret;
+
+	for (i = 0; i < priv->num_chip_id_regs; i++) {
+		ret = __nv_cam_check_id(priv, i);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
+static int nv_cam_check_ids(struct nv_cam *priv)
 {
 	int retry = 100;
 	int err;
 
 retry:
-	err = __nv_cam_check_id(priv);
+	err = __nv_cam_check_ids(priv);
 	if (err && retry) {
 		retry--;
 		udelay(1000);
@@ -597,7 +608,7 @@ static int nv_cam_board_setup(struct nv_cam *priv)
 		goto err_power_on;
 	}
 
-	err = nv_cam_check_id(priv);
+	err = nv_cam_check_ids(priv);
 
 	nv_cam_power_off(s_data);
 
@@ -609,18 +620,66 @@ done:
 	return err;
 }
 
+static int nv_cam_parse_dt_chip_ids(struct nv_cam *priv)
+{
+	int ret;
+
+	ret = device_property_count_u32(dev, "nv,chip-id-regs");
+	if (ret <= 0) {
+		dev_err(dev, "Failed to reach chip ID regs: %d\n", ret);
+		return ret;
+	}
+
+	priv->num_chip_id_regs = ret;
+
+	ret = device_property_read_u32_array(dev, "nv,chip-id-regs",
+					     priv->chip_id_regs,
+					     priv->num_chip_id_regs);
+	if (ret) {
+		dev_err(dev, "Failed to read chip ID regs: %d\n", ret);
+		return ret;
+	}
+
+	ret = device_property_read_u32_array(dev, "nv,chip-id-masks",
+					     priv->chip_id_masks,
+					     priv->num_chip_id_regs);
+	if (ret) {
+		dev_err(dev, "Failed to read chip ID masks: %d\n", ret);
+		return ret;
+	}
+
+	ret = device_property_read_u32_array(dev, "nv,chip-id-vals",
+					     priv->chip_id_vals,
+					     priv->num_chip_id_regs);
+	if (ret) {
+		dev_err(dev, "Failed to read chip ID vals: %d\n", ret);
+		return ret;
+	}
+
+	return 0;
+}
+
 static int nv_cam_parse_dt_extra(struct nv_cam *priv)
 {
 	struct device *dev = &priv->i2c_client->dev;
+	int ret;
 	u32 val;
 
 	val = 8;
-	device_property_read_u32(dev, "nv,reg-bits", &val);
+	ret = device_property_read_u32(dev, "nv,reg-bits", &val);
+	if (ret)
+		dev_info(dev, "Failed to read register bits, using default: %d\n", ret);
 	priv->reg_bits = val;
 
 	val = 8;
-	device_property_read_u32(dev, "nv,val-bits", &val);
+	ret = device_property_read_u32(dev, "nv,val-bits", &val);
+	if (ret)
+		dev_info(dev, "Failed to read value bits, using default: %d\n", ret);
 	priv->val_bits = val;
+
+	ret = nv_cam_parse_dt_chip_ids(priv);
+	if (ret)
+		return ret;
 
 	return 0;
 }
