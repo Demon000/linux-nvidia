@@ -426,8 +426,10 @@ static struct camera_common_pdata *nv_cam_parse_dt(
 
 	gpio = of_get_named_gpio(np, "reset-gpios", 0);
 	if (gpio < 0) {
-		if (gpio == -EPROBE_DEFER)
+		if (gpio == -EPROBE_DEFER) {
 			ret = ERR_PTR(-EPROBE_DEFER);
+			goto error;
+		}
 		dev_err(dev, "reset-gpios not found\n");
 		gpio = 0;
 	}
@@ -435,8 +437,10 @@ static struct camera_common_pdata *nv_cam_parse_dt(
 
 	gpio = of_get_named_gpio(np, "pwdn-gpios", 0);
 	if (gpio < 0) {
-		if (gpio == -EPROBE_DEFER)
+		if (gpio == -EPROBE_DEFER) {
 			ret = ERR_PTR(-EPROBE_DEFER);
+			goto error;
+		}
 		dev_err(dev, "pwdn-gpios not found\n");
 		gpio = 0;
 	}
@@ -462,6 +466,7 @@ static struct camera_common_pdata *nv_cam_parse_dt(
 
 	return board_priv_pdata;
 
+error:
 	devm_kfree(dev, board_priv_pdata);
 
 	return ret;
