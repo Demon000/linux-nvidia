@@ -5,6 +5,7 @@
  * Copyright (C) 2023 Analog Devices Inc.
  */
 
+#include <linux/property.h>
 #include <linux/slab.h>
 #include <linux/uaccess.h>
 #include <linux/gpio.h>
@@ -56,8 +57,6 @@ struct nv_cam {
 };
 
 static const struct regmap_config sensor_regmap_config = {
-	.reg_bits = 16,
-	.val_bits = 8,
 	.use_single_read = true,
 	.use_single_write = true,
 };
@@ -597,9 +596,26 @@ done:
 	return err;
 }
 
+static int nv_cam_parse_dt_extra(struct nv_cam *priv)
+{
+	struct device *dev = &priv->i2c_client->dev;
+	u32 val;
+
+	val = 8;
+	device_property_read_u32(dev, "nv,reg-bits", &val);
+	priv->reg_bits = val;
+
+	val = 8;
+	device_property_read_u32(dev, "nv,val-bits", &val);
+	priv->val_bits = val;
+
+	return 0;
+}
+
 static int nv_cam_probe(struct i2c_client *client,
 			const struct i2c_device_id *id)
 {
+	struct regmap_config regmap_config;
 	struct device *dev = &client->dev;
 	struct tegracam_device *tc_dev;
 	struct nv_cam *priv;
@@ -613,10 +629,20 @@ static int nv_cam_probe(struct i2c_client *client,
 	if (!tc_dev)
 		return -ENOMEM;
 
+
 	priv->i2c_client = tc_dev->client = client;
+
+	err = nv_cam_parse_dt_extra(dev);
+	if (err)
+		return err;
+
+	regmap_config = sensor_regmap_config;
+	regmap_config->reg_bits = priv->reg_bits;
+	regmap_config->val_bits = priv->val_bits;
+
 	tc_dev->dev = dev;
 	strncpy(tc_dev->name, "nv_cam", sizeof(tc_dev->name));
-	tc_dev->dev_regmap_config = &sensor_regmap_config;
+	tc_dev->dev_regmap_config = &regmap_config;
 	tc_dev->sensor_ops = &nv_cam_common_ops;
 	tc_dev->tcctrl_ops = &nv_cam_ctrl_ops;
 
