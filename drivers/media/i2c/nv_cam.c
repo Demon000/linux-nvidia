@@ -187,7 +187,7 @@ static int nv_cam_power_on(struct camera_common_data *s_data)
 			gpio_set_value(pw->pwdn_gpio, 1);
 	}
 
-	if (unlikely(!(pw->avdd || pw->iovdd || pw->dvdd)))
+	if (!pw->avdd && !pw->iovdd && !pw->dvdd))
 		goto skip_power_seqn;
 
 	if (pw->reset_gpio) {
@@ -299,26 +299,26 @@ static int nv_cam_power_put(struct tegracam_device *tc_dev)
 	struct camera_common_data *s_data = tc_dev->s_data;
 	struct camera_common_power_rail *pw = s_data->power;
 
-	if (unlikely(!pw))
+	if (!pw)
 		return -EFAULT;
 
-	if (likely(pw->dvdd))
+	if (pw->dvdd)
 		devm_regulator_put(pw->dvdd);
 
-	if (likely(pw->avdd))
+	if (pw->avdd)
 		devm_regulator_put(pw->avdd);
 
-	if (likely(pw->iovdd))
+	if (pw->iovdd)
 		devm_regulator_put(pw->iovdd);
 
 	pw->dvdd = NULL;
 	pw->avdd = NULL;
 	pw->iovdd = NULL;
 
-	if (likely(pw->reset_gpio))
+	if (pw->reset_gpio)
 		gpio_free(pw->reset_gpio);
 
-	if (likely(pw->pwdn_gpio))
+	if (pw->pwdn_gpio)
 		gpio_free(pw->pwdn_gpio);
 
 	return 0;
