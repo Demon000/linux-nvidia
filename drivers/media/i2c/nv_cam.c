@@ -80,12 +80,6 @@ static inline int nv_cam_write_reg(struct camera_common_data *s_data,
 	return 0;
 }
 
-static int nv_cam_write_table(struct nv_cam *priv, const nv_cam_reg table[])
-{
-	return regmap_util_write_table_8(priv->s_data->regmap, table, NULL, 0,
-		NV_CAM_TABLE_WAIT_MS, NV_CAM_TABLE_END);
-}
-
 static int nv_cam_set_group_hold(struct tegracam_device *tc_dev, bool val)
 {
 	return 0;
@@ -155,7 +149,7 @@ static int nv_cam_power_on(struct camera_common_data *s_data)
 			gpio_set_value(pw->pwdn_gpio, 1);
 	}
 
-	if (!pw->avdd && !pw->iovdd && !pw->dvdd))
+	if (!pw->avdd && !pw->iovdd && !pw->dvdd)
 		goto skip_power_seqn;
 
 	if (pw->reset_gpio) {
@@ -435,37 +429,34 @@ error:
 
 static int nv_cam_set_mode(struct tegracam_device *tc_dev)
 {
+#if 0
 	struct nv_cam *priv = (struct nv_cam *)tegracam_get_privdata(tc_dev);
 	struct camera_common_data *s_data = tc_dev->s_data;
-
-	int err = 0;
-
-	err = nv_cam_write_table(priv, mode_table[NV_CAM_MODE_COMMON]);
-	if (err)
-		return err;
+	int ret;
 
 	if (s_data->mode < 0)
 		return -EINVAL;
-
-	err = nv_cam_write_table(priv, mode_table[s_data->mode]);
-	if (err)
-		return err;
+#endif
 
 	return 0;
 }
 
 static int nv_cam_start_streaming(struct tegracam_device *tc_dev)
 {
+#if 0
 	struct nv_cam *priv = (struct nv_cam *)tegracam_get_privdata(tc_dev);
+#endif
 
-	return nv_cam_write_table(priv, mode_table[NV_CAM_START_STREAM]);
+	return 0;
 }
 
 static int nv_cam_stop_streaming(struct tegracam_device *tc_dev)
 {
+#if 0
 	struct nv_cam *priv = (struct nv_cam *)tegracam_get_privdata(tc_dev);
+#endif
 
-	return nv_cam_write_table(priv, mode_table[NV_CAM_STOP_STREAM]);
+	return 0;
 }
 
 static struct camera_common_sensor_ops nv_cam_common_ops = {
@@ -487,6 +478,7 @@ static int __nv_cam_check_id(struct nv_cam *priv, unsigned int i)
 	struct camera_common_data *s_data = priv->s_data;
 	struct device *dev = s_data->dev;
 	unsigned int reg, mask, val;
+	u8 reg_val;
 	int ret;
 
 	reg = priv->chip_id_regs[i];
@@ -500,7 +492,7 @@ static int __nv_cam_check_id(struct nv_cam *priv, unsigned int i)
 	val &= mask;
 	reg_val &= mask;
 
-	if (reg_val !== val) {
+	if (reg_val != val) {
 		dev_err(dev, "Invalid chip id 0x%x, expected 0x%x\n",
 			reg_val, val);
 		return -EINVAL;
@@ -511,7 +503,6 @@ static int __nv_cam_check_id(struct nv_cam *priv, unsigned int i)
 
 static int __nv_cam_check_ids(struct nv_cam *priv)
 {
-	unsigned int reg_val;
 	unsigned int i;
 	int ret;
 
@@ -575,6 +566,7 @@ done:
 
 static int nv_cam_parse_dt_chip_ids(struct nv_cam *priv)
 {
+	struct device *dev = &priv->i2c_client->dev;
 	int ret;
 
 	ret = device_property_count_u32(dev, "nv,chip-id-regs");
@@ -656,13 +648,13 @@ static int nv_cam_probe(struct i2c_client *client,
 
 	priv->i2c_client = tc_dev->client = client;
 
-	err = nv_cam_parse_dt_extra(dev);
+	err = nv_cam_parse_dt_extra(priv);
 	if (err)
 		return err;
 
 	regmap_config = sensor_regmap_config;
-	regmap_config->reg_bits = priv->reg_bits;
-	regmap_config->val_bits = priv->val_bits;
+	regmap_config.reg_bits = priv->reg_bits;
+	regmap_config.val_bits = priv->val_bits;
 
 	tc_dev->dev = dev;
 	strncpy(tc_dev->name, "nv_cam", sizeof(tc_dev->name));
