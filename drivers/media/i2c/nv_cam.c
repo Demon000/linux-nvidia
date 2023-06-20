@@ -100,7 +100,6 @@ static int nv_cam_write_table(struct nv_cam *priv, const nv_cam_reg table[])
 
 static int nv_cam_set_group_hold(struct tegracam_device *tc_dev, bool val)
 {
-	/* nv_cam does not support group hold */
 	return 0;
 }
 
@@ -165,12 +164,11 @@ static int nv_cam_post_register(struct camera_common_data *s_data)
 
 static int nv_cam_power_on(struct camera_common_data *s_data)
 {
-	int err = 0;
 	struct camera_common_power_rail *pw = s_data->power;
 	struct camera_common_pdata *pdata = s_data->pdata;
 	struct device *dev = s_data->dev;
+	int err = 0;
 
-	dev_dbg(dev, "%s: power on\n", __func__);
 	if (pdata && pdata->power_on) {
 		err = pdata->power_on(pw);
 		if (err)
@@ -227,9 +225,6 @@ skip_power_seqn:
 			gpio_set_value(pw->reset_gpio, 1);
 	}
 
-	/* Need to wait for t4 + t5 + t9 time as per the data sheet */
-	/* t4 - 200us, t5 - 6ms, t9 - 1.2ms */
-	/* also add 2ms to workaround the i2c timeout issue on 2nd camera */
 	usleep_range(10000, 10100);
 
 	pw->state = SWITCH_ON;
@@ -254,8 +249,6 @@ static int nv_cam_power_off(struct camera_common_data *s_data)
 	struct camera_common_power_rail *pw = s_data->power;
 	struct camera_common_pdata *pdata = s_data->pdata;
 	struct device *dev = s_data->dev;
-
-	dev_dbg(dev, "%s: power off\n", __func__);
 
 	if (pdata && pdata->power_off) {
 		err = pdata->power_off(pw);
