@@ -23,18 +23,6 @@ static const u32 ctrl_cid_list[] = {
 	TEGRA_CAMERA_CID_EXPOSURE,
 	TEGRA_CAMERA_CID_FRAME_RATE,
 	TEGRA_CAMERA_CID_SENSOR_MODE_ID,
-	TEGRA_CAMERA_CID_HCG_WB_GAIN_B,
-	TEGRA_CAMERA_CID_HCG_WB_GAIN_Gb,
-	TEGRA_CAMERA_CID_HCG_WB_GAIN_Gr,
-	TEGRA_CAMERA_CID_HCG_WB_GAIN_R,
-	TEGRA_CAMERA_CID_LCG_WB_GAIN_B,
-	TEGRA_CAMERA_CID_LCG_WB_GAIN_Gb,
-	TEGRA_CAMERA_CID_LCG_WB_GAIN_Gr,
-	TEGRA_CAMERA_CID_LCG_WB_GAIN_R,
-	TEGRA_CAMERA_CID_VS_WB_GAIN_B,
-	TEGRA_CAMERA_CID_VS_WB_GAIN_Gb,
-	TEGRA_CAMERA_CID_VS_WB_GAIN_Gr,
-	TEGRA_CAMERA_CID_VS_WB_GAIN_R,
 };
 
 #define MAX_CHIP_ID_REGS		3
@@ -108,23 +96,6 @@ static int nv_cam_set_gain(struct tegracam_device *tc_dev, s64 val)
 	return 0;
 }
 
-static int nv_cam_set_awb_gain(struct tegracam_device *tc_dev, enum awb_gain_type type, s64 val)
-{
-	unsigned int reg = 0x5180 + 0x20 * (type / 4) + 0x2 * (type % 4);
-	struct camera_common_data *s_data = tc_dev->s_data;
-	int err;
-
-	err = nv_cam_write_reg(s_data, reg, (val >> 8) & 0x7f);
-	if (err)
-		return err;
-
-	err = nv_cam_write_reg(s_data, reg + 1, val & 0xff);
-	if (err)
-		return err;
-
-	return 0;
-}
-
 static int nv_cam_set_frame_rate(struct tegracam_device *tc_dev, s64 val)
 {
 	return 0;
@@ -139,7 +110,6 @@ static struct tegracam_ctrl_ops nv_cam_ctrl_ops = {
 	.numctrls = ARRAY_SIZE(ctrl_cid_list),
 	.ctrl_cid_list = ctrl_cid_list,
 	.set_gain = nv_cam_set_gain,
-	.set_awb_gain = nv_cam_set_awb_gain,
 	.set_exposure = nv_cam_set_exposure,
 	.set_frame_rate = nv_cam_set_frame_rate,
 	.set_group_hold = nv_cam_set_group_hold,
