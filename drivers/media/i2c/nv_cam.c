@@ -469,8 +469,6 @@ static int nv_cam_stop_streaming(struct tegracam_device *tc_dev)
 }
 
 static struct camera_common_sensor_ops nv_cam_common_ops = {
-	.numfrmfmts = ARRAY_SIZE(nv_cam_frmfmt),
-	.frmfmt_table = nv_cam_frmfmt,
 	.post_register = nv_cam_post_register,
 	.power_on = nv_cam_power_on,
 	.power_off = nv_cam_power_off,
