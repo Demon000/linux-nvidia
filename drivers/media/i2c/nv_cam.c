@@ -898,7 +898,7 @@ static int nv_cam_remove(struct i2c_client *client)
 }
 
 static const struct of_device_id nv_cam_of_match[] = {
-	{ .compatible = "nv,nv_cam", },
+	{ .compatible = "nv,nv-cam", },
 	{ },
 };
 MODULE_DEVICE_TABLE(of, nv_cam_of_match);
