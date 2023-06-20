@@ -368,25 +368,17 @@ done:
 	return err;
 }
 
-static struct camera_common_pdata *nv_cam_parse_dt(
-	struct tegracam_device *tc_dev)
+static struct camera_common_pdata *nv_cam_parse_dt(struct tegracam_device *tc_dev)
 {
+	struct camera_common_pdata *board_priv_pdata;
+	struct camera_common_pdata *ret = NULL;
 	struct device *dev = tc_dev->dev;
 	struct device_node *np = dev->of_node;
-	struct camera_common_pdata *board_priv_pdata;
-	const struct of_device_id *match;
-	struct camera_common_pdata *ret = NULL;
 	int err = 0;
 	int gpio;
 
 	if (!np)
 		return NULL;
-
-	match = of_match_device(nv_cam_of_match, dev);
-	if (!match) {
-		dev_err(dev, "Failed to find matching dt id\n");
-		return NULL;
-	}
 
 	board_priv_pdata = devm_kzalloc(dev,
 		sizeof(*board_priv_pdata), GFP_KERNEL);
@@ -663,7 +655,6 @@ static int nv_cam_probe(struct i2c_client *client,
 	tc_dev = devm_kzalloc(dev, sizeof(*tc_dev), GFP_KERNEL);
 	if (!tc_dev)
 		return -ENOMEM;
-
 
 	priv->i2c_client = tc_dev->client = client;
 
