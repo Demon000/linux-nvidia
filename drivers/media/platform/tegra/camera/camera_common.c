@@ -1113,7 +1113,7 @@ int camera_common_fill_fmts(struct camera_common_data *s_data)
 	struct device *dev = s_data->dev;
 	unsigned int i;
 
-	s_data->numfmts = s_data->sensor_props->num_modes;
+	s_data->numfmts = s_data->sensor_props.num_modes;
 
 	frmfmt = devm_kcalloc(dev, s_data->numfmts, sizeof(*frmfmt), GFP_KERNEL);
 	if (!frmfmt)
@@ -1123,7 +1123,7 @@ int camera_common_fill_fmts(struct camera_common_data *s_data)
 
 	for (i = 0; i < s_data->numfmts; i++) {
 		struct sensor_mode_properties *sensor_mode =
-			s_data->sensor_props->sensor_modes[i];
+			&s_data->sensor_props.sensor_modes[i];
 
 		frmfmt->size.width = sensor_mode->image_properties.width;
 		frmfmt->size.height = sensor_mode->image_properties.height;

@@ -154,7 +154,7 @@ int tegracam_device_register(struct tegracam_device *tc_dev)
 	if (!tc_dev->sensor_ops->frmfmt_table) {
 		err = camera_common_fill_fmts(s_data);
 		if (err) {
-			dev_err(dev, "Failed to fill formats %s\n", tc_dev->name)
+			dev_err(dev, "Failed to fill formats %s\n", tc_dev->name);
 			return err;
 		}
 

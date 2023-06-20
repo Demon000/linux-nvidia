@@ -793,7 +793,7 @@ static int sensor_common_fill_framerates(
 	struct device *dev, struct device_node *np,
 	struct sensor_mode_properties *sensor_mode)
 {
-	struct sensor_control_properties *control = sensor_mode->control_properties;
+	struct sensor_control_properties *control = &sensor_mode->control_properties;
 	unsigned int i;
 
 	sensor_mode->num_framerates = (control->max_framerate -
