@@ -27,6 +27,15 @@ static const u32 ctrl_cid_list[] = {
 
 #define MAX_CHIP_ID_REGS		3
 
+struct nv_cam_cmd {
+	u32 *data;
+	unsigned int len;
+};
+
+struct nv_cam_mode {
+	struct nv_cam_cmd mode_cmd;
+};
+
 struct nv_cam {
 	struct i2c_client		*i2c_client;
 	struct v4l2_subdev		*subdev;
@@ -40,6 +49,14 @@ struct nv_cam {
 	u32				chip_id_regs[MAX_CHIP_ID_REGS];
 	u32				chip_id_masks[MAX_CHIP_ID_REGS];
 	u32				chip_id_vals[MAX_CHIP_ID_REGS];
+
+	u32				wait_ms_cmd;
+	struct nv_cam_cmd		mode_common_cmd;
+	struct nv_cam_cmd		start_stream_cmd;
+	struct nv_cam_cmd		stop_stream_cmd;
+
+	struct nv_cam_mode		*modes;
+	unsigned int			num_modes;
 };
 
 static const struct regmap_config sensor_regmap_config = {
@@ -75,6 +92,29 @@ static inline int nv_cam_write_reg(struct camera_common_data *s_data,
 		dev_err(s_data->dev, "%s: i2c write 0x%x = 0x%x failed: %d",
 			__func__, addr, val, ret);
 		return ret;
+	}
+
+	return 0;
+}
+
+static int nv_cam_write_cmd(struct nv_cam *priv, struct nv_cam_cmd *cmd)
+{
+	unsigned int i;
+	int ret;
+
+	for (i = 0; i < cmd->len;) {
+		if (cmd->data[i] == priv->wait_ms_cmd) {
+			msleep_range(cmd->data[i + 1]);
+
+			i += 2;
+		} else {
+			ret = regmap_write(priv->s_data->regmap,
+					   cmd->data[i], cmd->data[i + 1]);
+			if (ret)
+				return ret;
+
+			i += 2;
+		}
 	}
 
 	return 0;
@@ -429,32 +469,55 @@ error:
 
 static int nv_cam_set_mode(struct tegracam_device *tc_dev)
 {
-#if 0
-	struct nv_cam *priv = (struct nv_cam *)tegracam_get_privdata(tc_dev);
+	struct nv_cam *priv = tegracam_get_privdata(tc_dev);
 	struct camera_common_data *s_data = tc_dev->s_data;
+	struct device *dev = &priv->i2c_client->dev;
 	int ret;
 
-	if (s_data->mode < 0)
+	if (s_data->mode < 0 || s_data->mode > priv->num_modes)
 		return -EINVAL;
-#endif
+
+	ret = nv_cam_write_cmd(priv, &priv->mode_common_cmd);
+	if (ret) {
+		dev_err(dev, "Failed to write common mode cmd: %d\n", ret);
+		return ret;
+	}
+
+	ret = nv_cam_write_cmd(priv, &priv->modes[s_data->mode].mode_cmd);
+	if (ret) {
+		dev_err(dev, "Failed to write mode cmd: %d\n", ret);
+		return ret;
+	}
 
 	return 0;
 }
 
 static int nv_cam_start_streaming(struct tegracam_device *tc_dev)
 {
-#if 0
-	struct nv_cam *priv = (struct nv_cam *)tegracam_get_privdata(tc_dev);
-#endif
+	struct nv_cam *priv = tegracam_get_privdata(tc_dev);
+	struct device *dev = &priv->i2c_client->dev;
+	int ret;
+
+	ret = nv_cam_write_cmd(priv, &priv->start_stream_cmd);
+	if (ret) {
+		dev_err(dev, "Failed to write start stream cmd: %d\n", ret);
+		return ret;
+	}
 
 	return 0;
 }
 
 static int nv_cam_stop_streaming(struct tegracam_device *tc_dev)
 {
-#if 0
-	struct nv_cam *priv = (struct nv_cam *)tegracam_get_privdata(tc_dev);
-#endif
+	struct nv_cam *priv = tegracam_get_privdata(tc_dev);
+	struct device *dev = &priv->i2c_client->dev;
+	int ret;
+
+	ret = nv_cam_write_cmd(priv, &priv->stop_stream_cmd);
+	if (ret) {
+		dev_err(dev, "Failed to write stop stream cmd: %d\n", ret);
+		return ret;
+	}
 
 	return 0;
 }
@@ -564,6 +627,150 @@ done:
 	return err;
 }
 
+static int nv_cam_parse_dt_cmd(struct nv_cam *priv, struct fwnode_handle *fwnode,
+			       struct nv_cam_cmd *cmd, const char *name)
+{
+	struct device *dev = &priv->i2c_client->dev;
+	int ret;
+
+	ret = fwnode_property_count_u32(fwnode, name);
+	if (ret <= 0)
+		return ret;
+
+	cmd->len = ret;
+
+	cmd->data = devm_kcalloc(dev, cmd->len, sizeof(*cmd->data), GFP_KERNEL);
+	if (!cmd->data)
+		return -ENOMEM;
+
+	return fwnode_property_read_u32_array(fwnode, name, cmd->data, cmd->len);
+}
+
+static int nv_cam_parse_dt_mode(struct nv_cam *priv, struct fwnode_handle *fwnode,
+				struct nv_cam_mode *mode)
+{
+	struct device *dev = &priv->i2c_client->dev;
+	int ret;
+
+	ret = nv_cam_parse_dt_cmd(priv, fwnode, &mode->mode_cmd,
+				  "nv,mode-cmd");
+	if (ret)
+		dev_err(dev, "Failed to read mode cmd: %d\n", ret);
+
+	return 0;
+}
+
+static int nv_cam_parse_dt_count_modes(struct nv_cam *priv)
+{
+	struct device *dev = &priv->i2c_client->dev;
+	char temp_str[OF_MAX_STR_LEN];
+	struct fwnode_handle *fwnode;
+	unsigned int num_modes = 0;
+	unsigned int i;
+	int ret;
+
+	for (i = 0; num_modes < MAX_NUM_SENSOR_MODES; i++) {
+		ret = snprintf(temp_str, sizeof(temp_str), "%s%d",
+			       OF_SENSORMODE_PREFIX, i);
+		if (ret < 0)
+			return -EINVAL;
+
+		fwnode = device_get_named_child_node(dev, temp_str);
+		if (!fwnode)
+			break;
+
+		fwnode_handle_put(fwnode);
+
+		num_modes++;
+	}
+
+	priv->num_modes = num_modes;
+
+	return 0;
+}
+
+static int nv_cam_parse_dt_modes(struct nv_cam *priv)
+{
+	struct device *dev = &priv->i2c_client->dev;
+	char temp_str[OF_MAX_STR_LEN];
+	struct fwnode_handle *fwnode;
+	unsigned int i;
+	int ret;
+
+	if (!priv->num_modes)
+		return 0;
+
+	priv->modes = devm_kcalloc(dev, priv->num_modes,
+				   sizeof(*priv->modes), GFP_KERNEL);
+	if (!priv->modes)
+		return -ENOMEM;
+
+	for (i = 0; i < priv->num_modes; i++) {
+		ret = snprintf(temp_str, sizeof(temp_str), "%s%d",
+			       OF_SENSORMODE_PREFIX, i);
+		if (ret < 0)
+			return -EINVAL;
+
+		fwnode = device_get_named_child_node(dev, temp_str);
+		if (!fwnode)
+			break;
+
+		ret = nv_cam_parse_dt_mode(priv, fwnode, &priv->modes[i]);
+
+		fwnode_handle_put(fwnode);
+
+		if (ret) {
+			dev_err(dev, "Failed to parse mode: %d\n", ret);
+			return ret;
+		}
+	}
+
+	return 0;
+}
+
+static int nv_cam_parse_dt_cmds(struct nv_cam *priv)
+{
+	struct device *dev = &priv->i2c_client->dev;
+	struct fwnode_handle *fwnode = dev_fwnode(dev);
+	u32 val;
+	int ret;
+
+	val = 0x00;
+	ret = device_property_read_u32(dev, "nv,wait-ms-cmd", &val);
+	if (ret)
+		dev_info(dev, "Failed to read wait cmd, using default: %d\n", ret);
+	priv->wait_ms_cmd = val;
+
+	ret = nv_cam_parse_dt_cmd(priv, fwnode, &priv->mode_common_cmd,
+				  "nv,mode-common-cmd");
+	if (ret)
+		dev_err(dev, "Failed to read common mode cmd: %d\n", ret);
+
+	ret = nv_cam_parse_dt_cmd(priv, fwnode, &priv->start_stream_cmd,
+				  "nv,start-stream-cmd");
+	if (ret)
+		dev_err(dev, "Failed to read start stream cmd: %d\n", ret);
+
+	ret = nv_cam_parse_dt_cmd(priv, fwnode, &priv->stop_stream_cmd,
+				  "nv,stop-stream-cmd");
+	if (ret)
+		dev_err(dev, "Failed to read stop stream cmd: %d\n", ret);
+
+	ret = nv_cam_parse_dt_count_modes(priv);
+	if (ret) {
+		dev_err(dev, "Failed to count number of modes: %d\n", ret);
+		return ret;
+	}
+
+	ret = nv_cam_parse_dt_modes(priv);
+	if (ret) {
+		dev_err(dev, "Failed to parse modes: %d\n", ret);
+		return ret;
+	}
+
+	return 0;
+}
+
 static int nv_cam_parse_dt_chip_ids(struct nv_cam *priv)
 {
 	struct device *dev = &priv->i2c_client->dev;
@@ -621,6 +828,10 @@ static int nv_cam_parse_dt_extra(struct nv_cam *priv)
 	if (ret)
 		dev_info(dev, "Failed to read value bits, using default: %d\n", ret);
 	priv->val_bits = val;
+
+	ret = nv_cam_parse_dt_cmds(priv);
+	if (ret)
+		return ret;
 
 	ret = nv_cam_parse_dt_chip_ids(priv);
 	if (ret)
