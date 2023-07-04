@@ -1764,7 +1764,6 @@ static void tegra_channel_free_sensor_properties(
 static int tegra_channel_connect_sensor(
 	struct tegra_channel *chan, struct v4l2_subdev *sensor_sd)
 {
-	struct device *sensor_dev;
 	struct device_node *sensor_of_node;
 	struct tegra_csi_device *csi_device;
 	struct device_node *ep_node;
@@ -1775,11 +1774,7 @@ static int tegra_channel_connect_sensor(
 	if (!sensor_sd)
 		return -EINVAL;
 
-	sensor_dev = sensor_sd->dev;
-	if (!sensor_dev)
-		return -EINVAL;
-
-	sensor_of_node = sensor_dev->of_node;
+	sensor_of_node = to_of_node(sensor_sd->fwnode);
 	if (!sensor_of_node)
 		return -EINVAL;
 
@@ -2062,7 +2057,7 @@ int tegra_channel_init_subdevices(struct tegra_channel *chan)
 	}
 
 	/* Add a link for the camera_common_data in the tegra_csi_channel. */
-	ret = tegra_channel_connect_sensor(chan, chan->subdev_on_csi);
+	ret = tegra_channel_connect_sensor(chan, chan->subdev_for_calls);
 	if (ret < 0) {
 		dev_err(chan->vi->dev,
 			"%s: failed to connect sensor to channel\n", __func__);
