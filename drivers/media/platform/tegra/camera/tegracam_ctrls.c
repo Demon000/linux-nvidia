@@ -56,6 +56,54 @@ static const u32 tegracam_override_cids[] = {
 };
 #define NUM_OVERRIDE_CTRLS ARRAY_SIZE(tegracam_override_cids)
 
+#define WB_GAIN(_name, _id) 			\
+{						\
+	.ops = &tegracam_ctrl_ops,		\
+	.id = (_id),				\
+	.name = (_name),			\
+	.type = V4L2_CTRL_TYPE_INTEGER,		\
+	.min = 0,				\
+	.max = 32767,				\
+	.def = 1024,				\
+	.step = 1,				\
+}
+
+#define EXP(_name, _id)				\
+{						\
+	.ops = &tegracam_ctrl_ops,		\
+	.id = (_id),				\
+	.name = (_name),			\
+	.type = V4L2_CTRL_TYPE_INTEGER,		\
+	.min = 0,				\
+	.max = 65535,				\
+	.def = 64,				\
+	.step = 1,				\
+}
+
+#define REAL_GAIN(_name, _id)			\
+{						\
+	.ops = &tegracam_ctrl_ops,		\
+	.id = (_id),				\
+	.name = (_name),			\
+	.type = V4L2_CTRL_TYPE_INTEGER,		\
+	.min = 0,				\
+	.max = 255,				\
+	.def = 8,				\
+	.step = 1,				\
+}
+
+#define DIGITAL_GAIN(_name, _id)		\
+{						\
+	.ops = &tegracam_ctrl_ops,		\
+	.id = (_id),				\
+	.name = (_name),			\
+	.type = V4L2_CTRL_TYPE_INTEGER,		\
+	.min = 0,				\
+	.max = 16383,				\
+	.def = 1024,				\
+	.step = 1,				\
+}
+
 static struct v4l2_ctrl_config ctrl_cfg_list[] = {
 /* Do not change the name field for the controls! */
 	{
@@ -69,6 +117,27 @@ static struct v4l2_ctrl_config ctrl_cfg_list[] = {
 		.def = CTRL_U64_MIN,
 		.step = 1,
 	},
+	WB_GAIN("HCG Gain B", TEGRA_CAMERA_CID_HCG_WB_GAIN_B),
+	WB_GAIN("HCG Gain Gb", TEGRA_CAMERA_CID_HCG_WB_GAIN_Gb),
+	WB_GAIN("HCG Gain Gr", TEGRA_CAMERA_CID_HCG_WB_GAIN_Gr),
+	WB_GAIN("HCG Gain R", TEGRA_CAMERA_CID_HCG_WB_GAIN_R),
+	WB_GAIN("LCG Gain B", TEGRA_CAMERA_CID_LCG_WB_GAIN_B),
+	WB_GAIN("LCG Gain Gb", TEGRA_CAMERA_CID_LCG_WB_GAIN_Gb),
+	WB_GAIN("LCG Gain Gr", TEGRA_CAMERA_CID_LCG_WB_GAIN_Gr),
+	WB_GAIN("LCG Gain R", TEGRA_CAMERA_CID_LCG_WB_GAIN_R),
+	WB_GAIN("VS Gain B", TEGRA_CAMERA_CID_VS_WB_GAIN_B),
+	WB_GAIN("VS Gain Gb", TEGRA_CAMERA_CID_VS_WB_GAIN_Gb),
+	WB_GAIN("VS Gain Gr", TEGRA_CAMERA_CID_VS_WB_GAIN_Gr),
+	WB_GAIN("VS Gain R", TEGRA_CAMERA_CID_VS_WB_GAIN_R),
+	EXP("HCG Exposure", TEGRA_CAMERA_CID_HCG_EXP),
+	EXP("LCG Exposure", TEGRA_CAMERA_CID_LCG_EXP),
+	EXP("VS Exposure", TEGRA_CAMERA_CID_VS_EXP),
+	REAL_GAIN("HCG Real Gain", TEGRA_CAMERA_CID_REAL_GAIN_HCG),
+	REAL_GAIN("LCG Real Gain", TEGRA_CAMERA_CID_REAL_GAIN_LCG),
+	REAL_GAIN("VS Real Gain", TEGRA_CAMERA_CID_REAL_GAIN_VS),
+	DIGITAL_GAIN("HCG Digital Gain", TEGRA_CAMERA_CID_DIGITAL_GAIN_HCG),
+	DIGITAL_GAIN("LCG Digital Gain", TEGRA_CAMERA_CID_DIGITAL_GAIN_LCG),
+	DIGITAL_GAIN("VS Digital Gain", TEGRA_CAMERA_CID_DIGITAL_GAIN_VS),
 	{
 		.ops = &tegracam_ctrl_ops,
 		.id = TEGRA_CAMERA_CID_EXPOSURE,
@@ -310,6 +379,26 @@ static int tegracam_set_ctrls(struct tegracam_ctrl_handler *handler,
 	switch (ctrl->id) {
 	case TEGRA_CAMERA_CID_GAIN:
 		err = ops->set_gain(tc_dev, *ctrl->p_new.p_s64);
+		break;
+	case TEGRA_CAMERA_CID_HCG_WB_GAIN_B ... TEGRA_CAMERA_CID_VS_WB_GAIN_R:
+		err = ops->set_awb_gain(tc_dev,
+					ctrl->id - TEGRA_CAMERA_CID_WB_GAIN_BASE,
+					ctrl->val);
+		break;
+	case TEGRA_CAMERA_CID_HCG_EXP ... TEGRA_CAMERA_CID_EXP_BASE:
+		err = ops->set_exp(tc_dev,
+				   ctrl->id - TEGRA_CAMERA_CID_WB_GAIN_BASE,
+				   ctrl->val);
+		break;
+	case TEGRA_CAMERA_CID_REAL_GAIN_HCG ... TEGRA_CAMERA_CID_REAL_GAIN_VS:
+		err = ops->set_real_gain(tc_dev,
+					 ctrl->id - TEGRA_CAMERA_CID_REAL_GAIN_BASE,
+					 ctrl->val);
+		break;
+	case TEGRA_CAMERA_CID_DIGITAL_GAIN_HCG ... TEGRA_CAMERA_CID_DIGITAL_GAIN_VS:
+		err = ops->set_digital_gain(tc_dev,
+					    ctrl->id - TEGRA_CAMERA_CID_DIGITAL_GAIN_BASE,
+					    ctrl->val);
 		break;
 	case TEGRA_CAMERA_CID_FRAME_RATE:
 		err = ops->set_frame_rate(tc_dev, *ctrl->p_new.p_s64);
@@ -658,6 +747,22 @@ static int tegracam_check_ctrl_ops(
 				sensor_ops++;
 			if (ops->set_gain_ex != NULL)
 				sensor_ex_ops++;
+			break;
+		case TEGRA_CAMERA_CID_HCG_WB_GAIN_B ... TEGRA_CAMERA_CID_VS_WB_GAIN_R:
+			if (ops->set_awb_gain)
+				sensor_ops++;
+			break;
+		case TEGRA_CAMERA_CID_HCG_EXP ... TEGRA_CAMERA_CID_VS_EXP:
+			if (ops->set_exp)
+				sensor_ops++;
+			break;
+		case TEGRA_CAMERA_CID_REAL_GAIN_HCG ... TEGRA_CAMERA_CID_REAL_GAIN_VS:
+			if (ops->set_real_gain)
+				sensor_ops++;
+			break;
+		case TEGRA_CAMERA_CID_DIGITAL_GAIN_HCG ... TEGRA_CAMERA_CID_DIGITAL_GAIN_VS:
+			if (ops->set_digital_gain)
+				sensor_ops++;
 			break;
 		case TEGRA_CAMERA_CID_EXPOSURE:
 			if (ops->set_exposure == NULL &&
