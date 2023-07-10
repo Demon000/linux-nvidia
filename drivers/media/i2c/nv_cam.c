@@ -96,14 +96,13 @@ struct nv_cam {
 
 	struct nv_cam_mode		*modes;
 	unsigned int			num_modes;
-
-	bool				group_hold_prev;
 };
 
 static const struct regmap_config sensor_regmap_config = {
 	.use_single_read = true,
 	.use_single_write = true,
 };
+
 
 static unsigned int nv_cam_field_get(unsigned int val, unsigned int mask)
 {
@@ -170,44 +169,8 @@ static int nv_cam_write_cmd(struct nv_cam *priv, struct nv_cam_cmd *cmd)
 	return 0;
 }
 
-static int nv_cam_set_group_hold_dummy(struct tegracam_device *tc_dev, bool val)
-{
-	return 0;
-}
-
 static int nv_cam_set_group_hold(struct tegracam_device *tc_dev, bool val)
 {
-	struct nv_cam *priv = tc_dev->priv;
-	struct device *dev = tc_dev->dev;
-	int err;
-
-	dev_err(dev, "Call set group hold %u\n", val);
-
-	if (val == priv->group_hold_prev)
-		return 0;
-
-	dev_err(dev, "Set group hold %u\n", val);
-
-	if (val) {
-		err = nv_cam_write_reg(priv->s_data, 0x3208, 0x00);
-		if (err)
-			return err;
-
-		dev_err(dev, "%s: enter group hold\n", __func__);
-	} else {
-		err = nv_cam_write_reg(priv->s_data, 0x3208, 0x10);
-		if (err)
-			return err;
-
-		err = nv_cam_write_reg(priv->s_data, 0x3208, 0xa0);
-		if (err)
-			return err;
-
-		dev_err(dev, "%s: leave group hold\n", __func__);
-	}
-
-	priv->group_hold_prev = val;
-
 	return 0;
 }
 
@@ -238,17 +201,8 @@ static int nv_cam_set_gain_simple(struct tegracam_device *tc_dev, s64 val)
 	struct nv_cam *priv = tegracam_get_privdata(tc_dev);
 	struct camera_common_data *s_data = tc_dev->s_data;
 	struct nv_cam_mode *mode = &priv->modes[s_data->mode];
-	int ret;
 
-	ret = nv_cam_set_group_hold(tc_dev, 1);
-	if (ret)
-		return ret;
-
-	ret = _nv_cam_set_gain_simple(tc_dev, &mode->simple_gain, val);
-	if (ret)
-		return ret;
-
-	return nv_cam_set_group_hold(tc_dev, 0);
+	return _nv_cam_set_gain_simple(tc_dev, &mode->simple_gain, val);
 }
 
 static int nv_cam_set_gain_ad(struct tegracam_device *tc_dev, s64 val)
@@ -268,10 +222,6 @@ static int nv_cam_set_gain_ad(struct tegracam_device *tc_dev, s64 val)
 	if (dgain > mode->ad_gain.digital.max)
 		dgain = mode->ad_gain.digital.max;
 
-	ret = nv_cam_set_group_hold(tc_dev, 1);
-	if (ret)
-		return ret;
-
 	ret = _nv_cam_set_gain_simple(tc_dev, &mode->ad_gain.analog, again);
 	if (ret)
 		return ret;
@@ -280,7 +230,7 @@ static int nv_cam_set_gain_ad(struct tegracam_device *tc_dev, s64 val)
 	if (ret)
 		return ret;
 
-	return nv_cam_set_group_hold(tc_dev, 0);
+	return 0;
 }
 
 static int nv_cam_set_gain(struct tegracam_device *tc_dev, s64 val)
@@ -341,9 +291,6 @@ static int nv_cam_set_exp(struct tegracam_device *tc_dev, enum conversion_type t
 	unsigned int reg = 0x3501 + 0x40 * type;
 	int ret;
 
-	ret = nv_cam_set_group_hold(tc_dev, 1);
-	if (ret)
-		return ret;
 
 	ret = nv_cam_write_reg(s_data, reg, (val >> 8) & 0xff);
 	if (ret)
@@ -353,7 +300,7 @@ static int nv_cam_set_exp(struct tegracam_device *tc_dev, enum conversion_type t
 	if (ret)
 		return ret;
 
-	return nv_cam_set_group_hold(tc_dev, 0);
+	return 0;
 }
 
 static int nv_cam_set_frame_rate(struct tegracam_device *tc_dev, s64 val)
@@ -389,7 +336,7 @@ static struct tegracam_ctrl_ops nv_cam_ctrl_ops = {
 	.set_exposure = nv_cam_set_exposure,
 	.set_exposure_short = nv_cam_set_exposure_short,
 	.set_frame_rate = nv_cam_set_frame_rate,
-	.set_group_hold = nv_cam_set_group_hold_dummy,
+	.set_group_hold = nv_cam_set_group_hold,
 	.set_exp = nv_cam_set_exp,
 	.set_digital_gain = nv_cam_set_digital_gain,
 };
