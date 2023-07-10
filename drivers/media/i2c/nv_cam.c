@@ -289,15 +289,16 @@ static int nv_cam_set_exp(struct tegracam_device *tc_dev, enum conversion_type t
 {
 	struct camera_common_data *s_data = tc_dev->s_data;
 	unsigned int reg = 0x3501 + 0x40 * type;
-	int err;
+	int ret;
 
-	err = nv_cam_write_reg(s_data, reg, (val >> 8) & 0xff);
-	if (err)
-		return err;
 
-	err = nv_cam_write_reg(s_data, reg + 1, val & 0xff);
-	if (err)
-		return err;
+	ret = nv_cam_write_reg(s_data, reg, (val >> 8) & 0xff);
+	if (ret)
+		return ret;
+
+	ret = nv_cam_write_reg(s_data, reg + 1, val & 0xff);
+	if (ret)
+		return ret;
 
 	return 0;
 }
