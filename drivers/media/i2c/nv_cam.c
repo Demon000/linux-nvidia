@@ -179,7 +179,6 @@ static int _nv_cam_set_gain_simple(struct tegracam_device *tc_dev,
 				   s64 val)
 {
 	struct camera_common_data *s_data = tc_dev->s_data;
-	struct device *dev = s_data->dev;
 	unsigned int i;
 	int ret;
 
@@ -188,8 +187,6 @@ static int _nv_cam_set_gain_simple(struct tegracam_device *tc_dev,
 
 		reg_val = nv_cam_field_get(reg_val, gain->source_masks[i]);
 		reg_val = nv_cam_field_prep(reg_val, gain->target_masks[i]);
-
-		dev_err(dev, "val: %lld, reg: %04x, xval: %02x\n", val, gain->regs[i], reg_val);
 
 		ret = nv_cam_write_reg(s_data, gain->regs[i], reg_val);
 		if (ret)
@@ -213,7 +210,6 @@ static int nv_cam_set_gain_ad(struct tegracam_device *tc_dev, s64 val)
 	struct nv_cam *priv = tegracam_get_privdata(tc_dev);
 	struct camera_common_data *s_data = tc_dev->s_data;
 	struct nv_cam_mode *mode = &priv->modes[s_data->mode];
-	struct device *dev = s_data->dev;
 	unsigned int again;
 	unsigned int dgain;
 	int ret;
@@ -225,8 +221,6 @@ static int nv_cam_set_gain_ad(struct tegracam_device *tc_dev, s64 val)
 	dgain = DIV_ROUND_CLOSEST(val, again);
 	if (dgain > mode->ad_gain.digital.max)
 		dgain = mode->ad_gain.digital.max;
-
-	dev_err(dev, "val: %lld, again: %02x, dgain: %04x\n", val, again, dgain);
 
 	ret = _nv_cam_set_gain_simple(tc_dev, &mode->ad_gain.analog, again);
 	if (ret)
