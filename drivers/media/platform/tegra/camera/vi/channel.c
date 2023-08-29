@@ -1384,73 +1384,33 @@ error:
 	return ret;
 }
 
-static void tegra_channel_free_sensor_properties(
-		const struct v4l2_subdev *sensor_sd)
+static void tegra_channel_free_sensor_properties(struct tegra_channel *chan)
 {
-	struct camera_common_data *s_data;
-	struct tegra_csi_device *csi = tegra_get_mc_csi();
-	struct tegra_csi_channel *chan;
+	struct tegra_csi_channel *csi_chan;
+	struct v4l2_subdev *csi_chan_sd;
 
-	if (sensor_sd == NULL)
+	csi_chan_sd = tegra_channel_find_linked_csi_subdev(chan);
+	if (!csi_chan_sd)
 		return;
 
-	s_data = to_camera_common_data(sensor_sd->dev);
-	if (s_data == NULL)
-		return;
-
-	/* remove reference to s_data */
-	list_for_each_entry(chan, &csi->csi_chans, list) {
-		if (chan->sensor_sd == sensor_sd)
-			chan->s_data = NULL;
-	}
+	csi_chan = to_csi_chan(csi_chan_sd);
+	csi_chan->s_data = NULL;
+	csi_chan->sensor_sd = NULL;
 }
 
 static int tegra_channel_connect_sensor(
 	struct tegra_channel *chan, struct v4l2_subdev *sensor_sd)
 {
-	struct device *sensor_dev;
-	struct device_node *sensor_of_node;
-	struct tegra_csi_device *csi_device;
-	struct device_node *ep_node;
+	struct tegra_csi_channel *csi_chan;
+	struct v4l2_subdev *csi_chan_sd;
 
-	if (!chan)
-		return -EINVAL;
+	csi_chan_sd = tegra_channel_find_linked_csi_subdev(chan);
+	if (!csi_chan_sd)
+		return 0;
 
-	if (!sensor_sd)
-		return -EINVAL;
-
-	sensor_dev = sensor_sd->dev;
-	if (!sensor_dev)
-		return -EINVAL;
-
-	sensor_of_node = sensor_dev->of_node;
-	if (!sensor_of_node)
-		return -EINVAL;
-
-	csi_device = tegra_get_mc_csi();
-	WARN_ON(!csi_device);
-	if (!csi_device)
-		return -ENODEV;
-
-	for_each_endpoint_of_node(sensor_of_node, ep_node) {
-		struct device_node *csi_chan_of_node;
-		struct tegra_csi_channel *csi_chan;
-
-		csi_chan_of_node =
-			of_graph_get_remote_port_parent(ep_node);
-
-		list_for_each_entry(csi_chan, &csi_device->csi_chans, list) {
-			if (csi_chan->of_node == csi_chan_of_node) {
-				csi_chan->s_data =
-					to_camera_common_data(chan->subdev_on_csi->dev);
-				csi_chan->sensor_sd = chan->subdev_on_csi;
-				break;
-			}
-		}
-
-		of_node_put(csi_chan_of_node);
-
-	}
+	csi_chan = to_csi_chan(csi_chan_sd);
+	csi_chan->s_data = to_camera_common_data(chan->subdev_on_csi->dev);
+	csi_chan->sensor_sd = chan->subdev_on_csi;
 
 	return 0;
 }
@@ -1591,7 +1551,7 @@ static void tegra_channel_populate_dev_info(struct tegra_camera_dev_info *cdev,
 
 void tegra_channel_remove_subdevices(struct tegra_channel *chan)
 {
-	tegra_channel_free_sensor_properties(chan->subdev_on_csi);
+	tegra_channel_free_sensor_properties(chan);
 	video_unregister_device(chan->video);
 	chan->video = NULL;
 	chan->num_subdevs = 0;
@@ -1718,7 +1678,7 @@ int tegra_channel_init_subdevices(struct tegra_channel *chan)
 
 	return ret;
 fail:
-	tegra_channel_free_sensor_properties(chan->subdev_on_csi);
+	tegra_channel_free_sensor_properties(chan);
 	return ret;
 }
 EXPORT_SYMBOL(tegra_channel_init_subdevices);

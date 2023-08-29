@@ -281,35 +281,11 @@ done:
 	return ret;
 }
 
-static struct tegra_csi_channel *find_linked_csi_channel(
-	struct tegra_channel *chan)
-{
-	struct tegra_csi_channel *csi_it;
-	struct tegra_csi_channel *csi_chan = NULL;
-	int i;
-
-	struct tegra_csi_device *csi = tegra_get_mc_csi();
-	if (csi == NULL)
-	{
-		dev_err(chan->vi->dev, "csi mc not found");
-		return NULL;
-	}
-	/* Find connected csi_channel */
-	list_for_each_entry(csi_it, &csi->csi_chans, list) {
-		for (i = 0; i < chan->num_subdevs; i++) {
-			if (chan->subdev[i] == &csi_it->subdev) {
-				csi_chan = csi_it;
-				break;
-			}
-		}
-	}
-	return csi_chan;
-}
-
 static int tegra_channel_capture_setup(struct tegra_channel *chan, unsigned int vi_port)
 {
 	struct vi_capture_setup setup = default_setup;
 	struct tegra_csi_channel *csi_chan;
+	struct v4l2_subdev *csi_chan_sd;
 	long err;
 
 	setup.queue_depth = chan->capture_queue_depth;
@@ -337,11 +313,11 @@ static int tegra_channel_capture_setup(struct tegra_channel *chan, unsigned int 
 	setup.virtual_channel_id = chan->virtual_channel;
 
 	/* Set CSI port info */
-	csi_chan = find_linked_csi_channel(chan);
-	if (csi_chan == NULL) {
-		dev_err(chan->vi->dev, "csi_chan not found");
-		return -EINVAL;
-	}
+	csi_chan_sd = tegra_channel_find_linked_csi_subdev(chan);
+	if (!csi_chan_sd)
+		return 0;
+
+	csi_chan = to_csi_chan(csi_chan_sd);
 
 	setup.csi_port = csi_chan->ports[vi_port].csi_port;
 
