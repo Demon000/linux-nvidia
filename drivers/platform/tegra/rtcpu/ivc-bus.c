@@ -85,6 +85,9 @@ static struct tegra_ivc_channel *tegra_ivc_channel_create(
 	} start, end;
 	u32 version, channel_group, nframes, frame_size, queue_size;
 	const char *service;
+#if defined(NV_TEGRA_IVC_STRUCT_HAS_IOSYS_MAP) /* Linux v6.2 */
+	struct iosys_map rx, tx;
+#endif
 	int ret;
 
 	struct tegra_ivc_channel *chan = kzalloc(sizeof(*chan), GFP_KERNEL);
@@ -162,6 +165,18 @@ static struct tegra_ivc_channel *tegra_ivc_channel_create(
 	end.tx = region->ivc_size;
 
 	/* Init IVC */
+#if defined(NV_TEGRA_IVC_STRUCT_HAS_IOSYS_MAP) /* Linux v6.2 */
+	iosys_map_set_vaddr(&rx, (void *)region->base + start.rx);
+	iosys_map_set_vaddr(&tx, (void *)region->base + start.tx);
+
+	ret = tegra_ivc_init(&chan->ivc,
+			NULL,
+			&rx, region->iova + start.rx,
+			&tx, region->iova + start.tx,
+			nframes, frame_size,
+			tegra_ivc_channel_ring,
+			(void *)camhsp);
+#else
 	ret = tegra_ivc_init(&chan->ivc,
 			NULL,
 			(void *)(region->base + start.rx),
@@ -171,6 +186,7 @@ static struct tegra_ivc_channel *tegra_ivc_channel_create(
 			nframes, frame_size,
 			tegra_ivc_channel_ring,
 			(void *)camhsp);
+#endif
 	if (ret) {
 		dev_err(&chan->dev, "IVC initialization error: %d\n", ret);
 		goto error;
