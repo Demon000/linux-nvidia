@@ -100,7 +100,8 @@ EXPORT_SYMBOL(tegra_capture_ivc_capture_submit);
 
 int tegra_capture_ivc_register_control_cb(
 		tegra_capture_ivc_cb_func control_resp_cb,
-		uint32_t *trans_id, const void *priv_context)
+		uint32_t *trans_id, const void *priv_context,
+		size_t size)
 {
 	struct tegra_capture_ivc *civc;
 	struct tegra_capture_ivc_cb_ctx *cb_ctx;
@@ -153,6 +154,7 @@ int tegra_capture_ivc_register_control_cb(
 
 	*trans_id = (uint32_t)ctx_id;
 	cb_ctx->cb_func = control_resp_cb;
+	cb_ctx->size = size;
 	cb_ctx->priv_context = priv_context;
 
 	mutex_unlock(&civc->cb_ctx_lock);
@@ -200,11 +202,13 @@ int tegra_capture_ivc_notify_chan_id(uint32_t chan_id, uint32_t trans_id)
 
 	/* Update cb_ctx index */
 	civc->cb_ctx[chan_id].cb_func = civc->cb_ctx[trans_id].cb_func;
+	civc->cb_ctx[chan_id].size = civc->cb_ctx[trans_id].size;
 	civc->cb_ctx[chan_id].priv_context =
 			civc->cb_ctx[trans_id].priv_context;
 
 	/* Reset trans_id cb_ctx fields */
 	civc->cb_ctx[trans_id].cb_func = NULL;
+	civc->cb_ctx[trans_id].size = 0;
 	civc->cb_ctx[trans_id].priv_context = NULL;
 
 	mutex_unlock(&civc->cb_ctx_lock);
@@ -219,7 +223,8 @@ EXPORT_SYMBOL(tegra_capture_ivc_notify_chan_id);
 
 int tegra_capture_ivc_register_capture_cb(
 		tegra_capture_ivc_cb_func capture_status_ind_cb,
-		uint32_t chan_id, const void *priv_context)
+		uint32_t chan_id, const void *priv_context,
+		size_t size)
 {
 	struct tegra_capture_ivc *civc;
 	int ret;
@@ -250,6 +255,7 @@ int tegra_capture_ivc_register_capture_cb(
 	}
 
 	civc->cb_ctx[chan_id].cb_func = capture_status_ind_cb;
+	civc->cb_ctx[chan_id].size = size;
 	civc->cb_ctx[chan_id].priv_context = priv_context;
 	mutex_unlock(&civc->cb_ctx_lock);
 
@@ -285,6 +291,7 @@ int tegra_capture_ivc_unregister_control_cb(uint32_t id)
 	}
 
 	civc->cb_ctx[id].cb_func = NULL;
+	civc->cb_ctx[id].size = 0;
 	civc->cb_ctx[id].priv_context = NULL;
 
 	mutex_unlock(&civc->cb_ctx_lock);
@@ -329,6 +336,7 @@ int tegra_capture_ivc_unregister_capture_cb(uint32_t chan_id)
 	}
 
 	civc->cb_ctx[chan_id].cb_func = NULL;
+	civc->cb_ctx[chan_id].size = 0;
 	civc->cb_ctx[chan_id].priv_context = NULL;
 
 	mutex_unlock(&civc->cb_ctx_lock);
