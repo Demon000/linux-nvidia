@@ -27,7 +27,6 @@
 #define DEFAULT_FRAMERATE	30
 #define BPP_MEM			2
 #define VI_CSI_CLK_SCALE	110
-#define PG_BITRATE		32
 #define SLVSEC_STREAM_MAIN	0U
 
 #define VI_CHANNEL_DEV "/dev/capture-vi-channel"
@@ -310,6 +309,7 @@ static struct tegra_csi_channel *find_linked_csi_channel(
 static int tegra_channel_capture_setup(struct tegra_channel *chan, unsigned int vi_port)
 {
 	struct vi_capture_setup setup = default_setup;
+	struct tegra_csi_channel *csi_chan;
 	long err;
 
 	setup.queue_depth = chan->capture_queue_depth;
@@ -335,20 +335,15 @@ static int tegra_channel_capture_setup(struct tegra_channel *chan, unsigned int 
 	/* Set the NVCSI PixelParser index (Stream ID) and VC ID*/
 	setup.csi_stream_id = chan->port[vi_port];
 	setup.virtual_channel_id = chan->virtual_channel;
+
 	/* Set CSI port info */
-	if (chan->pg_mode) {
-		setup.csi_port = NVCSI_PORT_UNSPECIFIED;
-	} else {
-		struct tegra_csi_channel *csi_chan = find_linked_csi_channel(chan);
-
-		if (csi_chan == NULL)
-		{
-			dev_err(chan->vi->dev, "csi_chan not found");
-			return -EINVAL;
-		}
-
-		setup.csi_port = csi_chan->ports[vi_port].csi_port;
+	csi_chan = find_linked_csi_channel(chan);
+	if (csi_chan == NULL) {
+		dev_err(chan->vi->dev, "csi_chan not found");
+		return -EINVAL;
 	}
+
+	setup.csi_port = csi_chan->ports[vi_port].csi_port;
 
 	if (chan->fmtinfo->fourcc == V4L2_PIX_FMT_NV16)
 		setup.channel_flags |= CAPTURE_CHANNEL_FLAG_SEMI_PLANAR;
@@ -580,8 +575,6 @@ static int vi5_channel_error_recover(struct tegra_channel *chan,
 	int err = 0;
 	unsigned int vi_port = 0;
 	struct tegra_channel_buffer *buf;
-	struct tegra_mc_vi *vi = chan->vi;
-	struct v4l2_subdev *csi_subdev;
 
 	/* stop vi channel */
 	for (vi_port = 0; vi_port < chan->valid_ports; vi_port++) {
@@ -615,19 +608,6 @@ static int vi5_channel_error_recover(struct tegra_channel *chan,
 	/* report queue error to application */
 	if (queue_error)
 		vb2_queue_error(&chan->queue);
-
-	/* reset nvcsi stream */
-	csi_subdev = tegra_channel_find_linked_csi_subdev(chan);
-	if (!csi_subdev) {
-		dev_err(vi->dev, "unable to find linked csi subdev\n");
-		err = -1;
-		goto done;
-	}
-
-#if 0 /* disable for Canonical kernel */
-	v4l2_subdev_call(csi_subdev, core, sync,
-		V4L2_SYNC_EVENT_SUBDEV_ERROR_RECOVER);
-#endif
 
 	/* restart vi channel */
 	for (vi_port = 0; vi_port < chan->valid_ports; vi_port++) {
@@ -833,70 +813,68 @@ static int vi5_channel_start_streaming(struct vb2_queue *vq, u32 count)
 			chan->capture_state = CAPTURE_IDLE;
 			spin_unlock_irqrestore(&chan->capture_state_lock, flags);
 
-			if (!chan->pg_mode) {
-				sd = chan->subdev_on_csi;
-				node = sd->dev->of_node;
-				s_data = to_camera_common_data(sd->dev);
+			sd = chan->subdev_on_csi;
+			node = sd->dev->of_node;
+			s_data = to_camera_common_data(sd->dev);
 
-				/* get sensor properties from DT */
-				if (s_data != NULL && node != NULL) {
-					int idx = s_data->mode_prop_idx;
+			/* get sensor properties from DT */
+			if (s_data != NULL && node != NULL) {
+				int idx = s_data->mode_prop_idx;
 
-					emb_buf_size = 0;
-					if (idx < s_data->sensor_props.\
-								num_modes) {
-						sensor_mode =
-							&s_data->sensor_props.\
-							sensor_modes[idx];
+				emb_buf_size = 0;
+				if (idx < s_data->sensor_props.\
+							num_modes) {
+					sensor_mode =
+						&s_data->sensor_props.\
+						sensor_modes[idx];
 
-						chan->embedded_data_width =
-							sensor_mode->\
-							image_properties.width;
-						chan->embedded_data_height =
-							sensor_mode->\
-							 image_properties.\
-						      embedded_metadata_height;
-						/* rounding up to page size */
-						emb_buf_size =
-							round_up(chan->\
-							embedded_data_width *
-								chan->\
-							embedded_data_height *
-							BPP_MEM, PAGE_SIZE);
-					}
+					chan->embedded_data_width =
+						sensor_mode->\
+						image_properties.width;
+					chan->embedded_data_height =
+						sensor_mode->\
+						 image_properties.\
+					      embedded_metadata_height;
+					/* rounding up to page size */
+					emb_buf_size =
+						round_up(chan->\
+						embedded_data_width *
+							chan->\
+						embedded_data_height *
+						BPP_MEM, PAGE_SIZE);
 				}
-				/* Allocate buffer for Embedded Data if need to*/
-				if (emb_buf_size > chan->emb_buf_size) {
-					struct device *vi_unit_dev;
+			}
+			/* Allocate buffer for Embedded Data if need to*/
+			if (emb_buf_size > chan->emb_buf_size) {
+				struct device *vi_unit_dev;
 
-					vi5_unit_get_device_handle(\
-						chan->vi->ndev, chan->port[0],\
-						&vi_unit_dev);
-				/*
-				 * if old buffer is smaller than what we need,
-				 * release the old buffer and re-allocate a
-				 * bigger one below.
-				 */
-					if (chan->emb_buf_size > 0) {
-						dma_free_coherent(vi_unit_dev,
-							chan->emb_buf_size,
-							chan->emb_buf_addr,
-							chan->emb_buf);
-						chan->emb_buf_size = 0;
-					}
-
-					chan->emb_buf_addr =
-						dma_alloc_coherent(vi_unit_dev,
-							emb_buf_size,
-						&chan->emb_buf, GFP_KERNEL);
-					if (!chan->emb_buf_addr) {
-						dev_err(&chan->video->dev,
-							"Can't allocate memory"
-							"for embedded data\n");
-						goto err_setup;
-					}
-					chan->emb_buf_size = emb_buf_size;
+				vi5_unit_get_device_handle(\
+					chan->vi->ndev, chan->port[0],\
+					&vi_unit_dev);
+			/*
+			 * if old buffer is smaller than what we need,
+			 * release the old buffer and re-allocate a
+			 * bigger one below.
+			 */
+				if (chan->emb_buf_size > 0) {
+					dma_free_coherent(vi_unit_dev,
+						chan->emb_buf_size,
+						chan->emb_buf_addr,
+						chan->emb_buf);
+					chan->emb_buf_size = 0;
 				}
+
+				chan->emb_buf_addr =
+					dma_alloc_coherent(vi_unit_dev,
+						emb_buf_size,
+					&chan->emb_buf, GFP_KERNEL);
+				if (!chan->emb_buf_addr) {
+					dev_err(&chan->video->dev,
+						"Can't allocate memory"
+						"for embedded data\n");
+					goto err_setup;
+				}
+				chan->emb_buf_size = emb_buf_size;
 			}
 			ret = tegra_channel_capture_setup(chan, vi_port);
 			if (ret < 0)
@@ -1000,7 +978,7 @@ static int vi5_channel_stop_streaming(struct vb2_queue *vq)
 	return 0;
 }
 
-int tegra_vi5_enable(struct tegra_mc_vi *vi)
+static int tegra_vi5_enable(struct tegra_mc_vi *vi)
 {
 	int ret;
 
@@ -1014,7 +992,7 @@ err_emc_enable:
 	return ret;
 }
 
-void tegra_vi5_disable(struct tegra_mc_vi *vi)
+static void tegra_vi5_disable(struct tegra_mc_vi *vi)
 {
 	tegra_channel_ec_close(vi);
 	tegra_camera_emc_clk_disable();
@@ -1025,10 +1003,8 @@ static int vi5_power_on(struct tegra_channel *chan)
 	int ret = 0;
 	struct device *dev;
 	struct tegra_mc_vi *vi;
-	struct tegra_csi_device *csi;
 
 	vi = chan->vi;
-	csi = vi->csi;
 	vi5_unit_get_device_handle(vi->ndev, chan->port[0], &dev);
 
 	/* Resume VI5 to set ICC bandwidth with maximum value */
@@ -1057,10 +1033,8 @@ static void vi5_power_off(struct tegra_channel *chan)
 	int ret = 0;
 	struct device *dev;
 	struct tegra_mc_vi *vi;
-	struct tegra_csi_device *csi;
 
 	vi = chan->vi;
-	csi = vi->csi;
 	vi5_unit_get_device_handle(vi->ndev, chan->port[0], &dev);
 
 	ret = tegra_channel_set_power(chan, 0);

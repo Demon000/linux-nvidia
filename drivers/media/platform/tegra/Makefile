@@ -3,7 +3,6 @@
 
 ifdef CONFIG_MEDIA_SUPPORT
 obj-m += cdi/
-obj-m += tpg/
 endif
 obj-m += isc/
 obj-m += camera/

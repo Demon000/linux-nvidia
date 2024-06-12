@@ -10,6 +10,7 @@
 
 #include <nvidia/conftest.h>
 
+#include <media/csi_common.h>
 #include <media/media-device.h>
 #include <media/media-entity.h>
 #include <media/sensor_common.h>
@@ -18,8 +19,8 @@
 #include <media/v4l2-device.h>
 #include <media/v4l2-dev.h>
 #include <media/videobuf2-core.h>
+#include <media/videobuf2-v4l2.h>
 #include <media/tegra_camera_core.h>
-#include <media/csi.h>
 #include <linux/workqueue.h>
 #include <linux/semaphore.h>
 #include <linux/rwsem.h>
@@ -43,12 +44,6 @@ enum channel_capture_state {
 	CAPTURE_GOOD,
 	CAPTURE_TIMEOUT,
 	CAPTURE_ERROR,
-};
-
-enum tegra_vi_pg_mode {
-	TEGRA_VI_PG_DISABLED = 0,
-	TEGRA_VI_PG_DIRECT,
-	TEGRA_VI_PG_PATCH,
 };
 
 enum interlaced_type {
@@ -127,7 +122,6 @@ struct tegra_vi_graph_entity {
  * @capture: list of queued buffers for capture
  * @queued_lock: protects the buf_queued list
  *
- * @csi: CSI register bases
  * @stride_align: channel buffer stride alignment, default is 1
  * @width_align: image width alignment, default is 1
  * @height_align: channel buffer height alignment, default is 1
@@ -137,12 +131,6 @@ struct tegra_vi_graph_entity {
  *
  * @fmts_bitmap: a bitmap for formats supported
  * @bypass: bypass flag for VI bypass mode
- * @restart_version: incremented every time either capture or release threads
- *                   wants to reset VI. it is appended to each buffer processed
- *                   by the capture thread, and inspected by each buffer
- *                   processed by the receive thread.
- * @capture_version: thread-local copy of @restart_version created when the
- *                   capture thread resets the VI.
  */
 struct tegra_channel {
 	unsigned int id;
@@ -172,8 +160,6 @@ struct tegra_channel {
 	unsigned int *buffer_state;
 	struct vb2_v4l2_buffer **buffers;
 	unsigned long timeout;
-	atomic_t restart_version;
-	int capture_version;
 	unsigned int save_index;
 	unsigned int free_index;
 	unsigned int num_buffers;
@@ -202,7 +188,6 @@ struct tegra_channel {
 	struct work_struct status_work;
 	struct work_struct error_work;
 
-	void __iomem *csibase[TEGRA_CSI_BLOCKS];
 	unsigned int stride_align;
 	unsigned int preferred_stride;
 	unsigned int width_align;
@@ -210,12 +195,9 @@ struct tegra_channel {
 	unsigned int size_align;
 	unsigned int valid_ports;
 	unsigned int total_ports;
-	unsigned int numlanes;
 	unsigned int io_id;
 	unsigned int num_subdevs;
 	unsigned int sequence;
-	unsigned int saved_ctx_bypass;
-	unsigned int saved_ctx_pgmode;
 	unsigned int gang_mode;
 	unsigned int gang_width;
 	unsigned int gang_height;
@@ -230,7 +212,6 @@ struct tegra_channel {
 	bool bypass;
 	bool write_ispformat;
 	bool low_latency;
-	enum tegra_vi_pg_mode pg_mode;
 	bool bfirst_fstart;
 	enum channel_capture_state capture_state;
 	bool queue_error;
@@ -284,13 +265,10 @@ struct tegra_channel {
  * @channels: list of channels at the pipeline output and input
  *
  * @ctrl_handler: V4L2 control handler
- * @pattern: test pattern generator V4L2 control
- * @pg_mode: test pattern generator mode (disabled/direct/patch)
  *
  * @has_sensors: a flag to indicate whether is a real sensor connecting
  */
 struct tegra_mc_vi {
-	struct vi *vi;
 	struct platform_device *ndev;
 	struct v4l2_device v4l2_dev;
 	struct media_device media_dev;
@@ -304,14 +282,7 @@ struct tegra_mc_vi {
 	unsigned int num_channels;
 	unsigned int num_subdevs;
 
-	struct tegra_csi_device *csi;
 	struct list_head vi_chans;
-	struct tegra_channel *tpg_start;
-	void __iomem *iomem;
-
-	struct v4l2_ctrl_handler ctrl_handler;
-	struct v4l2_ctrl *pattern;
-	enum tegra_vi_pg_mode pg_mode;
 
 	bool has_sensors;
 	atomic_t power_on_refcnt;
@@ -326,11 +297,6 @@ struct tegra_mc_vi {
 	const struct tegra_vi_fops *fops;
 };
 
-int tegra_vi_get_port_info(struct tegra_channel *chan,
-			struct device_node *node, unsigned int index);
-void tegra_vi_v4l2_cleanup(struct tegra_mc_vi *vi);
-int tegra_vi_v4l2_init(struct tegra_mc_vi *vi);
-int tegra_vi_tpg_graph_init(struct tegra_mc_vi *vi);
 int tegra_vi_graph_init(struct tegra_mc_vi *vi);
 void tegra_vi_graph_cleanup(struct tegra_mc_vi *vi);
 int tegra_channel_init(struct tegra_channel *chan);
@@ -342,26 +308,10 @@ int tegra_channel_init_subdevices(struct tegra_channel *chan);
 void tegra_channel_remove_subdevices(struct tegra_channel *chan);
 struct v4l2_subdev *tegra_channel_find_linked_csi_subdev(
 	struct tegra_channel *chan);
-int tegra_vi2_power_on(struct tegra_mc_vi *vi);
-void tegra_vi2_power_off(struct tegra_mc_vi *vi);
-int tegra_vi4_power_on(struct tegra_mc_vi *vi);
-void tegra_vi4_power_off(struct tegra_mc_vi *vi);
-int tegra_vi5_enable(struct tegra_mc_vi *vi);
-void tegra_vi5_disable(struct tegra_mc_vi *vi);
-int tegra_clean_unlinked_channels(struct tegra_mc_vi *vi);
-int tegra_channel_s_ctrl(struct v4l2_ctrl *ctrl);
-int tegra_vi_media_controller_init(struct tegra_mc_vi *mc_vi,
-			struct platform_device *pdev);
 int tegra_capture_vi_media_controller_init(struct tegra_mc_vi *mc_vi,
 			struct platform_device *pdev);
 void tegra_vi_media_controller_cleanup(struct tegra_mc_vi *mc_vi);
 void tegra_channel_ec_close(struct tegra_mc_vi *mc_vi);
-void tegra_channel_query_hdmiin_unplug(struct tegra_channel *chan,
-		struct v4l2_event *event);
-int tegra_vi_mfi_work(struct tegra_mc_vi *vi, int csiport);
-int tpg_vi_media_controller_init(struct tegra_mc_vi *mc_vi, int pg_mode);
-void tpg_vi_media_controller_cleanup(struct tegra_mc_vi *mc_vi);
-struct tegra_mc_vi *tegra_get_mc_vi(void);
 
 u32 tegra_core_get_fourcc_by_idx(struct tegra_channel *chan,
 		unsigned int index);
@@ -378,9 +328,6 @@ void tegra_channel_queued_buf_done(struct tegra_channel *chan,
 	enum vb2_buffer_state state, bool multi_queue);
 int tegra_channel_set_stream(struct tegra_channel *chan, bool on);
 int tegra_channel_write_blobs(struct tegra_channel *chan);
-void tegra_channel_ring_buffer(struct tegra_channel *chan,
-			       struct vb2_v4l2_buffer *vb,
-			       struct timespec64 *ts, int state);
 struct tegra_channel_buffer *dequeue_buffer(struct tegra_channel *chan,
 	bool requeue);
 struct tegra_channel_buffer *dequeue_dequeue_buffer(struct tegra_channel *chan);
@@ -389,14 +336,6 @@ int tegra_channel_alloc_buffer_queue(struct tegra_channel *chan,
 					unsigned int num_buffers);
 void tegra_channel_dealloc_buffer_queue(struct tegra_channel *chan);
 void tegra_channel_init_ring_buffer(struct tegra_channel *chan);
-void free_ring_buffers(struct tegra_channel *chan, int frames);
-void release_buffer(struct tegra_channel *chan,
-			struct tegra_channel_buffer *buf);
-void set_timestamp(struct tegra_channel_buffer *buf,
-			const struct timespec64 *ts);
-void enqueue_inflight(struct tegra_channel *chan,
-			struct tegra_channel_buffer *buf);
-struct tegra_channel_buffer *dequeue_inflight(struct tegra_channel *chan);
 int tegra_channel_set_power(struct tegra_channel *chan, bool on);
 
 int tegra_channel_init_video(struct tegra_channel *chan);
@@ -412,42 +351,8 @@ struct tegra_vi_fops {
 	int (*vi_error_recover)(struct tegra_channel *chan, bool queue_error);
 	int (*vi_add_ctrls)(struct tegra_channel *chan);
 	void (*vi_init_video_formats)(struct tegra_channel *chan);
-	long (*vi_default_ioctl)(struct file *file, void *fh,
-			bool use_prio, unsigned int cmd, void *arg);
-	int (*vi_mfi_work)(struct tegra_mc_vi *vi, int port);
-	void (*vi_stride_align)(unsigned int *bpl);
 	void (*vi_unit_get_device_handle)(struct platform_device *pdev,
 		uint32_t csi_steam_id, struct device **dev);
 };
 
-struct tegra_csi_fops {
-	int (*csi_power_on)(struct tegra_csi_device *csi);
-	int (*csi_power_off)(struct tegra_csi_device *csi);
-	int (*csi_start_streaming)(struct tegra_csi_channel *chan,
-		int port_idx);
-	void (*csi_stop_streaming)(struct tegra_csi_channel *chan,
-		int port_idx);
-	void (*csi_override_format)(struct tegra_csi_channel *chan,
-		int port_idx);
-	int (*csi_error_recover)(struct tegra_csi_channel *chan, int port_idx);
-	int (*mipical)(struct tegra_csi_channel *chan);
-	int (*hw_init)(struct tegra_csi_device *csi);
-	int (*tpg_set_gain)(struct tegra_csi_channel *chan, int gain_ratio_tpg);
-};
-
-struct tegra_t210_vi_data {
-	struct nvhost_device_data *info;
-	const struct tegra_vi_fops *vi_fops;
-	const struct tegra_csi_fops *csi_fops;
-};
-
-struct tegra_vi_data {
-	struct nvhost_device_data *info;
-	const struct tegra_vi_fops *vi_fops;
-};
-
-struct tegra_csi_data {
-	struct nvhost_device_data *info;
-	const struct tegra_csi_fops *csi_fops;
-};
 #endif

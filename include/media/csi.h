@@ -14,39 +14,14 @@
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-subdev.h>
 #include <media/camera_common.h>
-#include <media/vi2_registers.h>
-#include <media/csi4_registers.h>
+#include <media/csi_common.h>
 #include <linux/platform_device.h>
 
-#include "soc/tegra/camrtc-capture.h"
-
-#define MAX_CSI_BLOCK_LANES 4
-#define NUM_TPG_INSTANCE 6
-
-#define csi_port_is_valid(port) (port > NVCSI_PORT_H ? 0 : 1)
-
-enum camera_gang_mode {
-	CAMERA_NO_GANG_MODE = 0,
-	CAMERA_GANG_L_R = 1,
-	CAMERA_GANG_T_B,
-	CAMERA_GANG_R_L,
-	CAMERA_GANG_B_T
-};
-
-struct tegra_channel;
-
-struct tpg_frmfmt {
-	struct v4l2_frmsize_discrete frmsize;
-	int pixel_format;
-	int framerate;
-	int h_blank;
-	int v_blank;
-};
+#define MAX_CSI_BLOCK_LANES					4
 
 struct tegra_csi_port {
 	void __iomem *pixel_parser;
 	void __iomem *cil;
-	void __iomem *tpg;
 
 	u32 csi_port;
 	u32 stream_id;
@@ -59,6 +34,19 @@ struct tegra_csi_port {
 	unsigned int framerate;
 	unsigned int h_blank;
 	unsigned int v_blank;
+};
+
+struct tegra_csi_device;
+struct tegra_csi_channel;
+
+struct tegra_csi_fops {
+	int (*csi_power_on)(struct tegra_csi_device *csi);
+	int (*csi_power_off)(struct tegra_csi_device *csi);
+	int (*csi_start_streaming)(struct tegra_csi_channel *chan,
+		int port_idx);
+	void (*csi_stop_streaming)(struct tegra_csi_channel *chan,
+		int port_idx);
+	int (*hw_init)(struct tegra_csi_device *csi);
 };
 
 struct tegra_csi_device {
@@ -78,22 +66,12 @@ struct tegra_csi_device {
 	int num_ports;
 	int num_channels;
 	struct list_head csi_chans;
-	struct tegra_csi_channel *tpg_start;
 	const struct tegra_csi_fops *fops;
-	const struct tpg_frmfmt *tpg_frmfmt_table;
-	unsigned int tpg_frmfmt_table_size;
-	bool tpg_gain_ctrl;
-	bool tpg_emb_data_config;
-	int (*get_tpg_settings)(struct tegra_csi_port *port,
-			union nvcsi_tpg_config *const tpg_config);
 	atomic_t power_ref;
 
 	struct dentry *debugdir;
 	struct mutex source_update;
-	int tpg_active;
 	int sensor_active;
-	/* num_tpg_channels is a fixed number per soc*/
-	int num_tpg_channels;
 };
 
 /*
@@ -114,7 +92,6 @@ struct tegra_csi_channel {
 	struct mutex format_lock;
 	unsigned int numports;
 	unsigned int numlanes;
-	unsigned int pg_mode;
 	struct camera_common_data *s_data;
 	unsigned int id;
 	atomic_t is_streaming;
@@ -135,37 +112,9 @@ static inline struct tegra_csi_device *to_csi(struct v4l2_subdev *subdev)
 }
 
 u32 read_phy_mode_from_dt(struct tegra_csi_channel *chan);
-u32 read_settle_time_from_dt(struct tegra_csi_channel *chan);
 u64 read_mipi_clk_from_dt(struct tegra_csi_channel *chan);
-void set_csi_portinfo(struct tegra_csi_device *csi,
-	unsigned int port, unsigned int numlanes);
-void tegra_csi_status(struct tegra_csi_channel *chan, int port_idx);
-int tegra_csi_error(struct tegra_csi_channel *chan, int port_idx);
-int tegra_csi_start_streaming(struct tegra_csi_channel *chan, int port_idx);
-void tegra_csi_stop_streaming(struct tegra_csi_channel *chan, int port_idx);
-int tegra_csi_tpg_set_gain(struct v4l2_subdev *sd, void *arg);
-void tegra_csi_error_recover(struct tegra_csi_channel *chan, int port_idx);
-int tegra_csi_init(struct tegra_csi_device *csi,
-		struct platform_device *pdev);
-int tegra_csi_mipi_calibrate(struct tegra_csi_device *csi,
-				bool on);
 int tegra_csi_media_controller_init(struct tegra_csi_device *csi,
 				struct platform_device *pdev);
 int tegra_csi_media_controller_remove(struct tegra_csi_device *csi);
-struct tegra_csi_device *tegra_get_mc_csi(void);
-int tpg_csi_media_controller_init(struct tegra_csi_device *csi, int pg_mode);
-void tpg_csi_media_controller_cleanup(struct tegra_csi_device *csi);
-int tegra_csi_power(struct tegra_csi_device *csi,
-			struct tegra_csi_channel *chan, int enable);
-int tegra_csi_error_recovery(struct tegra_channel *chan,
-	struct tegra_csi_device *csi, struct tegra_csi_channel *csi_chan);
 
-/* helper functions to calculate clock setting times */
-unsigned int tegra_csi_clk_settling_time(
-	struct tegra_csi_device *csi,
-	const unsigned int csicil_clk_mhz);
-unsigned int tegra_csi_ths_settling_time(
-	struct tegra_csi_device *csi,
-	const unsigned int csicil_clk_mhz,
-	const unsigned int mipi_clk_mhz);
 #endif

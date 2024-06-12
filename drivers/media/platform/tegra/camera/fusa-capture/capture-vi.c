@@ -25,7 +25,6 @@
 #include <media/fusa-capture/capture-common.h>
 
 #include <media/fusa-capture/capture-vi.h>
-#include <media/vi.h>
 #include <media/mc_common.h>
 #include <media/tegra_camera_platform.h>
 #include "camera/vi/vi5_fops.h"
@@ -92,7 +91,7 @@ static const char * const vi_mapping_elements[] = {
  * @brief The Capture-VI standalone driver context.
  */
 struct tegra_capture_vi_data {
-	struct vi vi_common; /**< VI device context */
+	struct tegra_mc_vi mc_vi; /**< VI device context */
 	uint32_t num_vi_devices; /**< Number of available VI devices */
 	struct platform_device *vi_pdevices[MAX_VI_UNITS];
 		/**< VI nvhost client platform device for each VI instance */
@@ -1664,10 +1663,9 @@ static int capture_vi_probe(struct platform_device *pdev)
 		goto cleanup;
 	}
 
-	info->vi_common.mc_vi.vi = &info->vi_common;
-	info->vi_common.mc_vi.fops = &vi5_fops;
+	info->mc_vi.fops = &vi5_fops;
 	err = tegra_capture_vi_media_controller_init(
-			&info->vi_common.mc_vi, pdev);
+			&info->mc_vi, pdev);
 	if (err) {
 		dev_warn(&pdev->dev, "media controller init failed\n");
 		err = 0;
@@ -1699,7 +1697,7 @@ static int capture_vi_remove(struct platform_device *pdev)
 		put_device(&info->vi_pdevices[ii]->dev);
 
 	vi_channel_drv_unregister(&pdev->dev);
-	tegra_vi_media_controller_cleanup(&info->vi_common.mc_vi);
+	tegra_vi_media_controller_cleanup(&info->mc_vi);
 	vi_channel_drv_exit();
 
 	return 0;

@@ -3,6 +3,7 @@
  * SPDX-FileCopyrightText: Copyright (C) 2015-2023 NVIDIA CORPORATION.  All rights reserved.
  */
 
+#include <linux/debugfs.h>
 #include <linux/fs.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
@@ -18,7 +19,6 @@
 #include <linux/list.h>
 #include <linux/nvhost.h>
 
-#include <media/vi.h>
 #include <media/tegra_camera_platform.h>
 #include <soc/tegra/fuse.h>
 #define CAMDEV_NAME "tegra_camera_ctrl"

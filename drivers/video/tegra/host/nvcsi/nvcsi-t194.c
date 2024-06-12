@@ -24,11 +24,10 @@
 #include <linux/kthread.h>
 #include <linux/nvhost.h>
 
+#include <media/csi.h>
 #include <media/mc_common.h>
 #include <media/tegra_camera_platform.h>
 #include "camera/nvcsi/csi5_fops.h"
-
-#include "media/csi.h"
 
 /* PG rate based on max ISP throughput */
 #define PG_CLK_RATE	102000000

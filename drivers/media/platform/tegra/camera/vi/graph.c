@@ -24,8 +24,6 @@
 #include <media/v4l2-fwnode.h>
 #include <media/tegra_v4l2_camera.h>
 #include <media/mc_common.h>
-#include <media/csi.h>
-#include "nvcsi/nvcsi.h"
 
 /* -----------------------------------------------------------------------------
  * Graph Management
@@ -499,75 +497,6 @@ static int tegra_vi_graph_parse_one(struct tegra_channel *chan,
 
 	return ret;
 }
-
-int tegra_vi_tpg_graph_init(struct tegra_mc_vi *mc_vi)
-{
-	int err = 0;
-	u32 link_flags = MEDIA_LNK_FL_ENABLED;
-	struct tegra_csi_device *csi = mc_vi->csi;
-	struct tegra_channel *vi_it;
-	struct tegra_csi_channel *csi_it;
-
-	if (!csi) {
-		dev_err(mc_vi->dev, "CSI is NULL\n");
-		return -EINVAL;
-	}
-	mc_vi->num_subdevs = mc_vi->num_channels;
-	vi_it = mc_vi->tpg_start;
-	csi_it = csi->tpg_start;
-
-	list_for_each_entry_from(vi_it, &mc_vi->vi_chans, list) {
-		/* Device not registered */
-		if (!vi_it->init_done)
-			continue;
-
-		list_for_each_entry_from(csi_it, &csi->csi_chans, list) {
-			struct media_entity *source = &csi_it->subdev.entity;
-			struct media_entity *sink = &vi_it->video->entity;
-			struct media_pad *source_pad = csi_it->pads;
-			struct media_pad *sink_pad = &vi_it->pad;
-
-			vi_it->bypass = 0;
-			err = v4l2_device_register_subdev(&mc_vi->v4l2_dev,
-					&csi_it->subdev);
-			if (err) {
-				dev_err(mc_vi->dev,
-					"%s:Fail to register subdev\n",
-					__func__);
-				goto register_fail;
-			}
-			dev_dbg(mc_vi->dev, "creating %s:%u -> %s:%u link\n",
-				source->name, source_pad->index,
-				sink->name, sink_pad->index);
-
-			err = tegra_media_create_link(source, source_pad->index,
-					sink, sink_pad->index, link_flags);
-			if (err < 0) {
-				dev_err(mc_vi->dev,
-					"failed to create %s:%u -> %s:%u link\n",
-					source->name, source_pad->index,
-					sink->name, sink_pad->index);
-				goto register_fail;
-			}
-			err = tegra_channel_init_subdevices(vi_it);
-			if (err) {
-				dev_err(mc_vi->dev,
-					"%s:Init subdevice error\n", __func__);
-				goto register_fail;
-			}
-			csi_it = list_next_entry(csi_it, list);
-			break;
-		}
-	}
-
-	return 0;
-register_fail:
-	csi_it = csi->tpg_start;
-	list_for_each_entry_from(csi_it, &csi->csi_chans, list)
-		v4l2_device_unregister_subdev(&csi_it->subdev);
-	return err;
-}
-EXPORT_SYMBOL(tegra_vi_tpg_graph_init);
 
 int tegra_vi_graph_init(struct tegra_mc_vi *vi)
 {

@@ -10,6 +10,4 @@
 
 extern struct tegra_csi_fops csi5_fops;
 
-int csi5_tpg_set_gain(struct tegra_csi_channel *chan, int gain_ratio_tpg);
-
 #endif

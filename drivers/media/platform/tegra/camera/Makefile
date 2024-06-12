@@ -31,6 +31,5 @@ tegra-camera-objs += fusa-capture/capture-vi-channel.o
 tegra-camera-objs += fusa-capture/capture-isp-channel.o
 tegra-camera-objs += fusa-capture/capture-isp.o
 obj-m += tegra-camera.o
-obj-m += tests/
 endif
 endif

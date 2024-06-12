@@ -30,13 +30,11 @@
 #include <media/fusa-capture/capture-vi-channel.h>
 #include <media/mc_common.h>
 #include <media/tegra_camera_platform.h>
-#include <media/vi.h>
 #include <soc/tegra/camrtc-capture.h>
 #include <soc/tegra/fuse.h>
 #include <uapi/linux/nvhost_vi_ioctl.h>
 
 #include "capture/capture-support.h"
-#include "vi5.h"
 
 /* HW capability, pixels per clock */
 #define NUM_PPC		8
@@ -49,7 +47,6 @@
 struct host_vi5 {
 	struct platform_device *pdev;
 	struct platform_device *vi_thi;
-	struct vi vi_common;
 	struct icc_path *icc_write;
 	struct clk *clk;
 
@@ -77,7 +74,7 @@ static int vi5_alloc_syncpt(struct platform_device *pdev,
 	return capture_alloc_syncpt(vi5->vi_thi, name, syncpt_id);
 }
 
-int nvhost_vi5_aggregate_constraints(struct platform_device *dev,
+static int nvhost_vi5_aggregate_constraints(struct platform_device *dev,
 				int clk_index,
 				unsigned long floor_rate,
 				unsigned long pixelrate,
@@ -137,7 +134,7 @@ static struct vi_channel_drv_ops vi5_channel_drv_ops = {
 	.get_syncpt_gos_backing = vi5_get_syncpt_gos_backing,
 };
 
-int vi5_priv_early_probe(struct platform_device *pdev)
+static int vi5_priv_early_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct nvhost_device_data *info;
@@ -221,7 +218,7 @@ static struct tegra_camera_dev_ops vi5_cdev_ops = {
 	.set_rate = vi5_set_rate,
 };
 
-int vi5_priv_late_probe(struct platform_device *pdev)
+static int vi5_priv_late_probe(struct platform_device *pdev)
 {
 	struct tegra_camera_dev_info vi_info;
 	struct nvhost_device_data *info = platform_get_drvdata(pdev);

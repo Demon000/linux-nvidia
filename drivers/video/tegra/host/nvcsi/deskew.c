@@ -26,8 +26,7 @@
 #include <linux/nvhost.h>
 
 #include <media/mc_common.h>
-
-//#include "camera/nvcsi/csi5_fops.h"
+#include <media/csi.h>
 
 static struct tegra_csi_device *mc_csi;
 static struct mutex deskew_lock;
@@ -84,20 +83,6 @@ static const uint32_t t194_regs[REGS_COUNT] = {
 0xfc,		//< NVCSI_CIL_B_CONTROL_0_OFFSET		regs[34]
 0x8c,		//< NVCSI_CIL_B_OFFSET				regs[35]
 };
-
-void nvcsi_deskew_platform_setup(struct tegra_csi_device *dev, bool t19x)
-{
-	int i;
-
-	mc_csi = dev;
-	is_t19x_or_greater = t19x;
-	mutex_init(&deskew_lock);
-	enabled_deskew_lanes = 0;
-	done_deskew_lanes = 0;
-	if (is_t19x_or_greater)
-		for (i = 0; i < REGS_COUNT; ++i)
-			regs[i] = t194_regs[i];
-}
 
 static inline void set_enabled_with_lock(unsigned int active_lanes)
 {
@@ -714,32 +699,3 @@ static int nvcsi_deskew_apply_helper(unsigned int active_lanes)
 	}
 	return 0;
 }
-
-void deskew_dbgfs_calc_bound(struct seq_file *s, long long input_stats)
-{
-	unsigned int x, w;
-
-	seq_printf(s, "input: %llx\n", input_stats);
-	compute_boundary(input_stats, &x, &w);
-	seq_printf(s, "setting: x %u w %u\n", x, w);
-}
-
-
-void deskew_dbgfs_deskew_stats(struct seq_file *s)
-{
-	unsigned int i = 0;
-
-	seq_puts(s, "clk stats\n");
-	for (i = 0; i < NVCSI_PHY_CIL_NUM_LANE; i++) {
-		seq_printf(s, "0x%08x 0x%08x\n",
-			debugfs_deskew_clk_stats_high[i],
-			debugfs_deskew_clk_stats_low[i]);
-	}
-	seq_puts(s, "data stats\n");
-	for (i = 0; i < NVCSI_PHY_CIL_NUM_LANE; i++) {
-		seq_printf(s, "0x%08x 0x%08x\n",
-				debugfs_deskew_data_stats_high[i],
-				debugfs_deskew_data_stats_low[i]);
-	}
-}
-

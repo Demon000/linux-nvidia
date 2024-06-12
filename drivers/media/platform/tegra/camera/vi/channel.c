@@ -30,19 +30,16 @@
 #include <media/tegracam_utils.h>
 #include <media/tegra_camera_platform.h>
 #include <media/v4l2-dv-timings.h>
-#include <media/vi.h>
+#include <media/mc_common.h>
 
 #include <linux/clk/tegra.h>
 #define CREATE_TRACE_POINTS
 #include <trace/events/camera_common.h>
 
-#include "mipical/mipi_cal.h"
-
 #include <uapi/linux/nvhost_nvcsi_ioctl.h>
-#include "nvcsi/nvcsi.h"
+
 #include "nvcsi/deskew.h"
 
-#define TPG_CSI_GROUP_ID	10
 #define HDMI_IN_RATE 550000000
 /* number of lanes per brick */
 #define NUM_LANES_PER_BRICK	4
@@ -191,10 +188,6 @@ static void tegra_channel_fmt_align(struct tegra_channel *chan,
 	align = align > 0 ? align : 1;
 	bpl = tegra_core_bytes_per_line(*width, align, vfmt);
 
-	/* Align stride */
-	if (chan->vi->fops->vi_stride_align)
-		chan->vi->fops->vi_stride_align(&bpl);
-
 	if (!*bytesperline)
 		*bytesperline = bpl;
 
@@ -255,10 +248,6 @@ static void tegra_channel_update_format(struct tegra_channel *chan,
 	u32 denominator = (!bpp->denominator) ? 1 : bpp->denominator;
 	u32 numerator = (!bpp->numerator) ? 1 : bpp->numerator;
 	u32 bytesperline = (width * numerator / denominator);
-
-	/* Align stride */
-	if (chan->vi->fops->vi_stride_align)
-		chan->vi->fops->vi_stride_align(&bytesperline);
 
 	chan->format.width = width;
 	chan->format.height = height;
@@ -369,95 +358,6 @@ static void tegra_channel_fmts_bitmap_init(struct tegra_channel *chan)
  * Tegra channel frame setup and capture operations
  * -----------------------------------------------------------------------------
  */
-/*
- * Update the timestamp of the buffer
- */
-void set_timestamp(struct tegra_channel_buffer *buf,
-			const struct timespec64 *ts)
-{
-	buf->buf.vb2_buf.timestamp = (u64)timespec64_to_ns(ts);
-}
-EXPORT_SYMBOL(set_timestamp);
-
-void release_buffer(struct tegra_channel *chan,
-			struct tegra_channel_buffer *buf)
-{
-	struct vb2_v4l2_buffer *vbuf = &buf->buf;
-	s64 frame_arrived_ts = 0;
-
-	/* release one frame */
-	vbuf->sequence = chan->sequence++;
-	vbuf->field = V4L2_FIELD_NONE;
-	vb2_set_plane_payload(&vbuf->vb2_buf,
-		0, chan->format.sizeimage);
-
-	/*
-	 * WAR to force buffer state if capture state is not good
-	 * WAR - After sync point timeout or error frame capture
-	 * the second buffer is intermittently frame of zeros
-	 * with no error status or padding.
-	 */
-	if (chan->capture_state != CAPTURE_GOOD || vbuf->sequence < 2)
-		buf->state = VB2_BUF_STATE_ERROR;
-
-	if (chan->sequence == 1) {
-		/*
-		 * Evaluate the initial capture latency between videobuf2 queue
-		 * and first captured frame release to user-space.
-		 */
-		frame_arrived_ts = ktime_to_ms(ktime_get());
-		dev_dbg(&chan->video->dev,
-			"%s: capture init latency is %lld ms\n",
-			__func__, (frame_arrived_ts - queue_init_ts));
-	}
-
-	dev_dbg(&chan->video->dev,
-		"%s: release buf[%p] frame[%d] to user-space\n",
-		__func__, buf, chan->sequence);
-	vb2_buffer_done(&vbuf->vb2_buf, buf->state);
-}
-EXPORT_SYMBOL(release_buffer);
-
-/*
- * `buf` has been successfully setup to receive a frame and is
- * "in flight" through the VI hardware. We are currently waiting
- * on it to be filled. Moves the pointer into the `release` list
- * for the release thread to wait on.
- */
-void enqueue_inflight(struct tegra_channel *chan,
-			struct tegra_channel_buffer *buf)
-{
-	/* Put buffer into the release queue */
-	spin_lock(&chan->release_lock);
-	list_add_tail(&buf->queue, &chan->release);
-	spin_unlock(&chan->release_lock);
-
-	/* Wake up kthread for release */
-	wake_up_interruptible(&chan->release_wait);
-}
-EXPORT_SYMBOL(enqueue_inflight);
-
-struct tegra_channel_buffer *dequeue_inflight(struct tegra_channel *chan)
-{
-	struct tegra_channel_buffer *buf = NULL;
-
-	spin_lock(&chan->release_lock);
-	if (list_empty(&chan->release)) {
-		spin_unlock(&chan->release_lock);
-		return NULL;
-	}
-
-	buf = list_entry(chan->release.next,
-			 struct tegra_channel_buffer, queue);
-
-	if (buf)
-		list_del_init(&buf->queue);
-
-	spin_unlock(&chan->release_lock);
-	return buf;
-}
-EXPORT_SYMBOL(dequeue_inflight);
-
 void tegra_channel_init_ring_buffer(struct tegra_channel *chan)
 {
 	chan->released_bufs = 0;
@@ -470,68 +370,6 @@ void tegra_channel_init_ring_buffer(struct tegra_channel *chan)
 	chan->queue_error = false;
 }
 EXPORT_SYMBOL(tegra_channel_init_ring_buffer);
-
-void free_ring_buffers(struct tegra_channel *chan, int frames)
-{
-	struct vb2_v4l2_buffer *vbuf;
-	s64 frame_arrived_ts = 0;
-
-	spin_lock(&chan->buffer_lock);
-
-	if (frames == 0)
-		frames = chan->num_buffers;
-
-	while (frames > 0) {
-		vbuf = chan->buffers[chan->free_index];
-
-		/* Skip updating the buffer sequence with channel sequence
-		 * for interlaced captures and this instead will be updated
-		 * with frame id received from CSI with capture complete
-		 */
-		if (!chan->is_interlaced)
-			vbuf->sequence = chan->sequence++;
-		else
-			chan->sequence++;
-		/* release one frame */
-		vbuf->field = V4L2_FIELD_NONE;
-		vb2_set_plane_payload(&vbuf->vb2_buf,
-			0, chan->format.sizeimage);
-
-		/*
-		 * WAR to force buffer state if capture state is not good
-		 * WAR - After sync point timeout or error frame capture
-		 * the second buffer is intermittently frame of zeros
-		 * with no error status or padding.
-		 */
-		/* This will drop the first two frames. Disable for now. */
-		if (chan->capture_state != CAPTURE_GOOD ||
-			chan->released_bufs < 2)
-			chan->buffer_state[chan->free_index] =
-						VB2_BUF_STATE_ERROR;
-
-		if (chan->sequence == 1) {
-			/*
-			 * Evaluate the initial capture latency
-			 * between videobuf2 queue and first captured
-			 * frame release to user-space.
-			 */
-			frame_arrived_ts = ktime_to_ms(ktime_get());
-			dev_dbg(&chan->video->dev,
-				"%s: capture init latency is %lld ms\n",
-				__func__, (frame_arrived_ts - queue_init_ts));
-		}
-		vb2_buffer_done(&vbuf->vb2_buf,
-			chan->buffer_state[chan->free_index++]);
-
-		if (chan->free_index >= chan->capture_queue_depth)
-			chan->free_index = 0;
-		chan->num_buffers--;
-		chan->released_bufs++;
-		frames--;
-	}
-	spin_unlock(&chan->buffer_lock);
-}
-EXPORT_SYMBOL(free_ring_buffers);
 
 static void add_buffer_to_ring(struct tegra_channel *chan,
 				struct vb2_v4l2_buffer *vb)
@@ -546,46 +384,6 @@ static void add_buffer_to_ring(struct tegra_channel *chan,
 	chan->num_buffers++;
 	spin_unlock(&chan->buffer_lock);
 }
-
-static void update_state_to_buffer(struct tegra_channel *chan, int state)
-{
-	int save_index = (chan->save_index - PREVIOUS_BUFFER_DEC_INDEX);
-
-	/* save index decrements by 2 as 3 bufs are added in ring buffer */
-	if (save_index < 0)
-		save_index += chan->capture_queue_depth;
-	/* update state for the previous buffer */
-	chan->buffer_state[save_index] = state;
-
-	/* for timeout/error case update the current buffer state as well */
-	if (chan->capture_state != CAPTURE_GOOD)
-		chan->buffer_state[chan->save_index] = state;
-}
-
-void tegra_channel_ring_buffer(struct tegra_channel *chan,
-					struct vb2_v4l2_buffer *vb,
-					struct timespec64 *ts, int state)
-{
-	if (!chan->bfirst_fstart)
-		chan->bfirst_fstart = true;
-	else
-		update_state_to_buffer(chan, state);
-
-	/* Capture state is not GOOD, release all buffers and re-init state */
-	if (chan->capture_state != CAPTURE_GOOD) {
-		free_ring_buffers(chan, chan->num_buffers);
-		tegra_channel_init_ring_buffer(chan);
-		return;
-	} else {
-		/* TODO: granular time code information */
-		vb->timecode.seconds = ts->tv_sec;
-	}
-
-	/* release buffer N at N+2 frame start event */
-	if (chan->num_buffers >= (chan->capture_queue_depth - 1))
-		free_ring_buffers(chan, 1);
-}
-EXPORT_SYMBOL(tegra_channel_ring_buffer);
 
 void tegra_channel_ec_close(struct tegra_mc_vi *vi)
 {
@@ -854,10 +652,6 @@ int tegra_channel_write_blobs(struct tegra_channel *chan)
 	struct v4l2_subdev *sd = NULL;
 	struct camera_common_data *s_data = NULL;
 
-	/* for TPG, do nothing */
-	if (chan->pg_mode)
-		return 0;
-
 	sd = chan->subdev_on_csi;
 	if (!sd)
 		return -EINVAL;
@@ -900,7 +694,7 @@ int tegra_channel_set_stream(struct tegra_channel *chan, bool on)
 				if (!ret && err < 0 && err != -ENOIOCTLCMD)
 					ret = err;
 			}
-			if (!chan->bypass && !chan->pg_mode &&
+			if (!chan->bypass &&
 					chan->deskew_ctx->deskew_lanes) {
 				err = nvcsi_deskew_apply_check(
 							chan->deskew_ctx);
@@ -1239,23 +1033,13 @@ tegra_channel_dv_timings_cap(struct file *file, void *fh,
 	return v4l2_subdev_call(sd, pad, dv_timings_cap, cap);
 }
 
-int tegra_channel_s_ctrl(struct v4l2_ctrl *ctrl)
+static int tegra_channel_s_ctrl(struct v4l2_ctrl *ctrl)
 {
 	struct tegra_channel *chan = container_of(ctrl->handler,
 				struct tegra_channel, ctrl_handler);
 	int err = 0;
 
 	switch (ctrl->id) {
-	case TEGRA_CAMERA_CID_GAIN_TPG:
-		{
-			if (chan->vi->csi != NULL &&
-				chan->vi->csi->tpg_gain_ctrl) {
-				struct v4l2_subdev *sd = chan->subdev_on_csi;
-
-				err = tegra_csi_tpg_set_gain(sd, &(ctrl->val));
-			}
-		}
-		break;
 	case TEGRA_CAMERA_CID_VI_BYPASS_MODE:
 		if (switch_ctrl_qmenu[ctrl->val] == SWITCH_ON)
 			chan->bypass = true;
@@ -1326,27 +1110,6 @@ static const struct v4l2_ctrl_ops channel_ctrl_ops = {
 };
 
 static const struct v4l2_ctrl_config common_custom_ctrls[] = {
-	{
-		.ops = &channel_ctrl_ops,
-		.id = TEGRA_CAMERA_CID_GAIN_TPG,
-		.name = "TPG Gain Ctrl",
-		.type = V4L2_CTRL_TYPE_INTEGER,
-		.min = 1,
-		.max = 64,
-		.step = 1,
-		.def = 1,
-	},
-	{
-		.ops = &channel_ctrl_ops,
-		.id = TEGRA_CAMERA_CID_GAIN_TPG_EMB_DATA_CFG,
-		.name = "TPG embedded data config",
-		.type = V4L2_CTRL_TYPE_BOOLEAN,
-		.flags = V4L2_CTRL_FLAG_READ_ONLY,
-		.min = 0,
-		.max = 1,
-		.step = 1,
-		.def = 0,
-	},
 	{
 		.ops = &channel_ctrl_ops,
 		.id = TEGRA_CAMERA_CID_VI_BYPASS_MODE,
@@ -1590,32 +1353,6 @@ static int tegra_channel_setup_controls(struct tegra_channel *chan)
 
 	/* Add new custom controls */
 	for (i = 0; i < ARRAY_SIZE(common_custom_ctrls); i++) {
-		switch (common_custom_ctrls[i].id) {
-			case TEGRA_CAMERA_CID_OVERRIDE_ENABLE:
-				/* don't create override control for pg mode */
-				if (chan->pg_mode)
-					continue;
-				break;
-			case TEGRA_CAMERA_CID_GAIN_TPG:
-				/* Skip the custom control for sensor and
-				 * for TPG which doesn't support gain control
-				 */
-				if ((vi->csi == NULL) || (chan->pg_mode &&
-					 !vi->csi->tpg_gain_ctrl))
-					continue;
-				break;
-			case TEGRA_CAMERA_CID_GAIN_TPG_EMB_DATA_CFG:
-				/* Skip the custom control for sensor and
-				 * for TPG which doesn't support embedded
-				 * data with TPG config data.
-				 */
-				if ((vi->csi == NULL) || (chan->pg_mode &&
-					!vi->csi->tpg_emb_data_config))
-					continue;
-				break;
-			default:
-				break;
-		}
 		ctrl = v4l2_ctrl_new_custom(&chan->ctrl_handler,
 			&common_custom_ctrls[i], NULL);
 		if (!ctrl) {
@@ -1634,14 +1371,6 @@ static int tegra_channel_setup_controls(struct tegra_channel *chan)
 	}
 
 	vi->fops->vi_add_ctrls(chan);
-
-	if (chan->pg_mode) {
-		ret = v4l2_ctrl_add_handler(&chan->ctrl_handler,
-					&chan->vi->ctrl_handler, NULL, false);
-		if (ret || chan->ctrl_handler.error)
-			dev_err(chan->vi->dev,
-				"Failed to add VI controls\n");
-	}
 
 	/* setup the controls */
 	ret = v4l2_ctrl_handler_setup(&chan->ctrl_handler);
@@ -1840,10 +1569,7 @@ static void tegra_channel_populate_dev_info(struct tegra_camera_dev_info *cdev,
 			pixelclock *= 16/7;
 		cdev->lane_num = tegra_channel_get_num_lanes(chan);
 	} else {
-		if (chan->pg_mode) {
-			/* TPG mode */
-			cdev->sensor_type = SENSORTYPE_VIRTUAL;
-		} else if (v4l2_subdev_has_op(chan->subdev_on_csi,
+		if (v4l2_subdev_has_op(chan->subdev_on_csi,
 						video, g_dv_timings)) {
 			/* HDMI-IN */
 			cdev->sensor_type = SENSORTYPE_OTHER;
@@ -1887,8 +1613,7 @@ int tegra_channel_init_subdevices(struct tegra_channel *chan)
 	int index = 0;
 	u8 num_sd = 0;
 	struct tegra_camera_dev_info camdev_info;
-	int grp_id = chan->pg_mode ? (TPG_CSI_GROUP_ID + chan->port[0] + 1)
-		: chan->port[0] + 1;
+	int grp_id = chan->port[0] + 1;
 	int len = 0;
 
 	/* set_stream of CSI */
@@ -1972,8 +1697,7 @@ int tegra_channel_init_subdevices(struct tegra_channel *chan)
 	 * If subdev on csi is csi or channel is in pg mode
 	 * then don't look for sensor props
 	 */
-	if (strstr(chan->subdev_on_csi->name, "nvcsi") != NULL ||
-			chan->pg_mode) {
+	if (strstr(chan->subdev_on_csi->name, "nvcsi") != NULL) {
 		tegra_channel_populate_dev_info(&camdev_info, chan);
 		ret = tegra_camera_device_register(&camdev_info, chan);
 		return ret;
@@ -2211,19 +1935,6 @@ static int tegra_channel_log_status(struct file *file, void *priv)
 	return 0;
 }
 
-static long tegra_channel_default_ioctl(struct file *file, void *fh,
-			bool use_prio, unsigned int cmd, void *arg)
-{
-	struct tegra_channel *chan = video_drvdata(file);
-	struct tegra_mc_vi *vi = chan->vi;
-	long ret = 0;
-
-	if (vi->fops && vi->fops->vi_default_ioctl)
-		ret = vi->fops->vi_default_ioctl(file, fh, use_prio, cmd, arg);
-
-	return ret;
-}
-
 static const struct v4l2_ioctl_ops tegra_channel_ioctl_ops = {
 	.vidioc_querycap		= tegra_channel_querycap,
 	.vidioc_enum_framesizes		= tegra_channel_enum_framesizes,
@@ -2254,7 +1965,6 @@ static const struct v4l2_ioctl_ops tegra_channel_ioctl_ops = {
 	.vidioc_g_input			= tegra_channel_g_input,
 	.vidioc_s_input			= tegra_channel_s_input,
 	.vidioc_log_status		= tegra_channel_log_status,
-	.vidioc_default			= tegra_channel_default_ioctl,
 };
 
 static int tegra_channel_close(struct file *fp);
@@ -2264,7 +1974,6 @@ static int tegra_channel_open(struct file *fp)
 	struct video_device *vdev = video_devdata(fp);
 	struct tegra_channel *chan = video_drvdata(fp);
 	struct tegra_mc_vi *vi;
-	struct tegra_csi_device *csi;
 
 	trace_tegra_channel_open(vdev->name);
 	mutex_lock(&chan->video_lock);
@@ -2280,7 +1989,6 @@ static int tegra_channel_open(struct file *fp)
 	}
 
 	vi = chan->vi;
-	csi = vi->csi;
 
 	chan->fh = (struct v4l2_fh *)fp->private_data;
 
@@ -2344,7 +2052,7 @@ static const struct v4l2_file_operations tegra_channel_fops = {
 	.mmap		= vb2_fop_mmap,
 };
 
-int tegra_vi_get_port_info(struct tegra_channel *chan,
+static int tegra_vi_get_port_info(struct tegra_channel *chan,
 			struct device_node *node, unsigned int index)
 {
 	struct device_node *ep = NULL;
@@ -2401,7 +2109,6 @@ int tegra_vi_get_port_info(struct tegra_channel *chan,
 			ret = of_property_read_u32(ep, "bus-width", &value);
 			if (ret < 0)
 				dev_err(chan->vi->dev, "num lanes error\n");
-			chan->numlanes = value;
 
 			if (value > 12) {
 				dev_err(chan->vi->dev, "num lanes >12!\n");
@@ -2437,34 +2144,16 @@ static int tegra_channel_csi_init(struct tegra_channel *chan)
 	chan->total_ports = 0;
 	memset(&chan->port[0], INVALID_CSI_PORT, TEGRA_CSI_BLOCKS);
 	memset(&chan->syncpoint_fifo[0], 0, sizeof(chan->syncpoint_fifo));
-	if (chan->pg_mode) {
-		/* If VI has 4 existing channels, chan->id will start
-		 * from 4 for the first TPG channel, which uses PORT_A(0).
-		 * To get the correct PORT number, subtract existing number of
-		 * channels from chan->id.
-		 */
-		chan->port[0] = (chan->id - vi->num_channels)
-				% NUM_TPG_INSTANCE;
-		chan->virtual_channel =  (chan->id - vi->num_channels)
-				/ NUM_TPG_INSTANCE;
-
-		WARN_ON(chan->port[0] > vi->csi->num_tpg_channels);
-		chan->numlanes = 2;
-	} else {
-		ret = tegra_vi_get_port_info(chan, vi->dev->of_node, chan->id);
-		if (ret) {
-			dev_err(vi->dev, "%s:Fail to parse port info\n",
-					__func__);
-			return ret;
-		}
+	ret = tegra_vi_get_port_info(chan, vi->dev->of_node, chan->id);
+	if (ret) {
+		dev_err(vi->dev, "%s:Fail to parse port info\n",
+				__func__);
+		return ret;
 	}
 
-	for (idx = 0; idx < TEGRA_CSI_BLOCKS && csi_port_is_valid(chan->port[idx]); idx++) {
+	for (idx = 0; idx < TEGRA_CSI_BLOCKS && csi_port_is_valid(chan->port[idx]); idx++)
 		chan->total_ports++;
-		/* maximum of 4 lanes are present per CSI block */
-		chan->csibase[idx] = vi->iomem +
-					TEGRA_VI_CSI_BASE(chan->port[idx]);
-	}
+
 	/* based on gang mode valid ports will be updated - set default to 1 */
 	chan->valid_ports = chan->total_ports ? 1 : 0;
 	return ret;
@@ -2504,8 +2193,8 @@ int tegra_channel_init_video(struct tegra_channel *chan)
 	chan->video->v4l2_dev = &vi->v4l2_dev;
 	chan->video->queue = &chan->queue;
 	len = snprintf(chan->video->name, sizeof(chan->video->name), "%s-%s-%u",
-		dev_name(vi->dev), chan->pg_mode ? "tpg" : "output",
-		chan->pg_mode ? (chan->id - vi->num_channels) : chan->port[0]);
+		dev_name(vi->dev), "output",
+		chan->port[0]);
 	if (len < 0) {
 		ret = -EINVAL;
 		goto ctrl_init_error;
@@ -2561,8 +2250,6 @@ int tegra_channel_init(struct tegra_channel *chan)
 	INIT_LIST_HEAD(&chan->entities);
 	init_waitqueue_head(&chan->start_wait);
 	init_waitqueue_head(&chan->release_wait);
-	atomic_set(&chan->restart_version, 1);
-	chan->capture_version = 0;
 	spin_lock_init(&chan->start_lock);
 	spin_lock_init(&chan->release_lock);
 	INIT_LIST_HEAD(&chan->dequeue);
@@ -2685,15 +2372,6 @@ void tegra_vi_channels_unregister(struct tegra_mc_vi *vi)
 	}
 }
 EXPORT_SYMBOL(tegra_vi_channels_unregister);
-
-int tegra_vi_mfi_work(struct tegra_mc_vi *vi, int channel)
-{
-	if (vi->fops)
-		return vi->fops->vi_mfi_work(vi, channel);
-
-	return 0;
-}
-EXPORT_SYMBOL(tegra_vi_mfi_work);
 
 int tegra_vi_channels_init(struct tegra_mc_vi *vi)
 {
