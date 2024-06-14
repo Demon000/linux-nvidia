@@ -1,0 +1,14 @@
+*.cmd
+*.dtb
+*.dtb.S
+*.dtbo
+*.dtc.tmp
+*.dts.tmp
+*.ko
+*.mod
+*.mod.c
+*.o
+*.o.d
+*.pre.tmp
+Module.symvers
+modules.order
