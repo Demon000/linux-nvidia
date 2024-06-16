@@ -64,7 +64,7 @@ static int tegra_vi_graph_build_one(struct tegra_channel *chan,
 		return 0;
 	}
 
-	local = entity->entity;
+	local = vi_graph_media_entity(entity);
 	dev_dbg(chan->vi->dev, "creating links for entity %s\n", local->name);
 
 	do {
@@ -136,7 +136,7 @@ static int tegra_vi_graph_build_one(struct tegra_channel *chan,
 			break;
 		}
 
-		remote = ent->entity;
+		remote = vi_graph_media_entity(ent);
 
 		if (link.remote_port >= remote->num_pads) {
 			dev_err(chan->vi->dev, "invalid port number %u on %pOF\n",
@@ -227,7 +227,7 @@ static int tegra_vi_graph_build_links(struct tegra_channel *chan)
 		return -EINVAL;
 	}
 
-	if (ent->entity == NULL) {
+	if (vi_graph_media_entity(ent) == NULL) {
 		dev_err(chan->vi->dev, "entity not bounded %pOF\n",
 			to_of_node(link.remote_node));
 #if defined(CONFIG_V4L2_FWNODE)
@@ -236,7 +236,7 @@ static int tegra_vi_graph_build_links(struct tegra_channel *chan)
 		return -EINVAL;
 	}
 
-	source = ent->entity;
+	source = vi_graph_media_entity(ent);
 	source_pad = &source->pads[link.remote_port];
 	sink = &chan->video->entity;
 	sink_pad = &chan->pad;
@@ -277,8 +277,8 @@ static void tegra_vi_graph_remove_links(struct tegra_channel *chan)
 	/* remove entity links and subdev for nvcsi */
 	entity = list_first_entry(&chan->entities,
 			struct tegra_vi_graph_entity, list);
-	if (entity->entity != NULL) {
-		media_entity_remove_links(entity->entity);
+	if (vi_graph_media_entity(entity) != NULL) {
+		media_entity_remove_links(vi_graph_media_entity(entity));
 		video_unregister_device(entity->subdev->devnode);
 	}
 
@@ -312,7 +312,7 @@ static int tegra_vi_graph_notify_complete(struct v4l2_async_notifier *notifier)
 
 	/* Create links for every entity. */
 	list_for_each_entry(entity, &chan->entities, list) {
-		if (entity->entity != NULL) {
+		if (vi_graph_media_entity(entity) != NULL) {
 			ret = tegra_vi_graph_build_one(chan, entity);
 			if (ret < 0)
 				goto graph_error;
@@ -371,7 +371,6 @@ static int tegra_vi_graph_notify_bound(struct v4l2_async_notifier *notifier,
 		}
 
 		dev_info(chan->vi->dev, "subdev %s bound\n", subdev->name);
-		entity->entity = &subdev->entity;
 		entity->subdev = subdev;
 		chan->subdevs_bound++;
 		return 0;
@@ -408,7 +407,6 @@ static void tegra_vi_graph_notify_unbind(struct v4l2_async_notifier *notifier,
 			/* remove subdev node */
 			chan->subdevs_bound--;
 			entity->subdev = NULL;
-			entity->entity = NULL;
 			dev_info(chan->vi->dev, "subdev %s unbind\n",
 				subdev->name);
 			break;

@@ -85,7 +85,6 @@ struct tegra_channel_buffer {
 struct tegra_vi_graph_entity {
 	struct list_head list;
 	struct device_node *node;
-	struct media_entity *entity;
 
 #if defined(NV_V4L2_ASYNC_CONNECTION_STRUCT_PRESENT) /* Linux 6.5 */
 	struct v4l2_async_connection *asc;
@@ -94,6 +93,9 @@ struct tegra_vi_graph_entity {
 #endif
 	struct v4l2_subdev *subdev;
 };
+
+#define vi_graph_media_entity(_entity) \
+	(_entity->subdev ? &_entity->subdev->entity : NULL)
 
 /**
  * struct tegra_channel - Tegra video channel
