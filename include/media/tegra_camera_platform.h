@@ -8,9 +8,6 @@
 
 #include <uapi/media/tegra_camera_platform.h>
 
-/* avoid overflows */
-#define DEFAULT_PG_CLK_RATE (UINT_MAX - 1)
-
 /**
  * enum tegra_camera_hw_type - camera hw engines
  */
@@ -32,7 +29,6 @@ enum tegra_camera_sensor_type {
 	SENSORTYPE_DPHY,
 	SENSORTYPE_CPHY,
 	SENSORTYPE_SLVSEC,
-	SENSORTYPE_VIRTUAL,
 	/* HDMI-IN or other inputs */
 	SENSORTYPE_OTHER,
 	SENSORTYPE_MAX,
@@ -75,7 +71,6 @@ struct tegra_camera_dev_info {
 	u64 lane_speed;
 	u32 lane_num;
 	u32 ppc;
-	u64 pg_clk_rate;
 	u64 bw;
 	bool use_max;
 	u32 memory_latency;

@@ -396,30 +396,12 @@ static int tegra_csi_get_port_info(struct tegra_csi_channel *chan,
 	return 0;
 }
 
-static int tegra_csi_init(struct tegra_csi_device *csi,
-		struct platform_device *pdev)
-{
-	int err = 0;
-
-	csi->dev = &pdev->dev;
-	csi->fops->hw_init(csi);
-
-	return err;
-}
-
 static int tegra_csi_channel_init_one(struct tegra_csi_channel *chan)
 {
 	struct v4l2_subdev *sd;
 	int numlanes = 0;
 	struct tegra_csi_device *csi = chan->csi;
 	int i, ret;
-	const struct tegra_video_format *vf;
-
-	vf = tegra_core_get_default_format();
-	if (vf == NULL) {
-		dev_err(csi->dev, "Fail to find tegra video fmt");
-		return -EINVAL;
-	}
 
 	atomic_set(&chan->is_streaming, 0);
 	sd = &chan->subdev;
@@ -434,16 +416,6 @@ static int tegra_csi_channel_init_one(struct tegra_csi_channel *chan)
 			GFP_KERNEL);
 	if (!chan->ports)
 		return -ENOMEM;
-
-	/* Initialize the default format */
-	for (i = 0; i < chan->numports; i++) {
-		chan->ports[i].format.code = vf->vf_code;
-		chan->ports[i].format.field = V4L2_FIELD_NONE;
-		chan->ports[i].format.colorspace = V4L2_COLORSPACE_SRGB;
-		chan->ports[i].format.width = TEGRA_DEF_WIDTH;
-		chan->ports[i].format.height = TEGRA_DEF_HEIGHT;
-		chan->ports[i].core_format = vf;
-	}
 
 	chan->pads = devm_kzalloc(csi->dev, 2 * sizeof(*chan->pads),
 		GFP_KERNEL);
@@ -568,10 +540,6 @@ int tegra_csi_media_controller_init(struct tegra_csi_device *csi,
 		if (ret < 0)
 			dev_err(&pdev->dev, "Failed to init csi channel\n");
 	}
-
-	ret = tegra_csi_init(csi, pdev);
-	if (ret < 0)
-		dev_err(&pdev->dev, "Failed to init csi property,clks\n");
 
 	return 0;
 }

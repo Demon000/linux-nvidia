@@ -489,7 +489,6 @@ static void vi5_capture_dequeue(struct tegra_channel *chan,
 		} else if (descr->status.status != CAPTURE_STATUS_SUCCESS) {
 			if ((descr->status.flags
 					& CAPTURE_STATUS_FLAG_CHANNEL_IN_ERROR) != 0) {
-				chan->queue_error = true;
 				dev_err(vi->dev, "uncorr_err: flags %d, err_data %d\n",
 					descr->status.flags, descr->status.err_data);
 			} else {
@@ -566,7 +565,7 @@ static int vi5_channel_error_recover(struct tegra_channel *chan,
 
 	/* release all previously-enqueued capture buffers to v4l2 */
 	while (!list_empty(&chan->capture)) {
-		buf = dequeue_buffer(chan, false);
+		buf = dequeue_buffer(chan);
 		if (!buf)
 			break;
 		vb2_buffer_done(&buf->buf.vb2_buf, VB2_BUF_STATE_ERROR);
@@ -632,7 +631,7 @@ static int tegra_channel_kthread_capture_enqueue(void *data)
 			spin_unlock_irqrestore(&chan->capture_state_lock,
 				flags);
 
-			buf = dequeue_buffer(chan, false);
+			buf = dequeue_buffer(chan);
 			if (!buf)
 				break;
 

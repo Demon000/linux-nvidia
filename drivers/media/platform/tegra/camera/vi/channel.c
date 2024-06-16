@@ -360,30 +360,10 @@ static void tegra_channel_fmts_bitmap_init(struct tegra_channel *chan)
  */
 void tegra_channel_init_ring_buffer(struct tegra_channel *chan)
 {
-	chan->released_bufs = 0;
-	chan->num_buffers = 0;
-	chan->save_index = 0;
-	chan->free_index = 0;
-	chan->bfirst_fstart = false;
 	chan->capture_descr_index = 0;
 	chan->capture_descr_sequence = 0;
-	chan->queue_error = false;
 }
 EXPORT_SYMBOL(tegra_channel_init_ring_buffer);
-
-static void add_buffer_to_ring(struct tegra_channel *chan,
-				struct vb2_v4l2_buffer *vb)
-{
-	/* save the buffer to the ring first */
-	/* Mark buffer state as error before start */
-	spin_lock(&chan->buffer_lock);
-	chan->buffer_state[chan->save_index] = VB2_BUF_STATE_ERROR;
-	chan->buffers[chan->save_index++] = vb;
-	if (chan->save_index >= chan->capture_queue_depth)
-		chan->save_index = 0;
-	chan->num_buffers++;
-	spin_unlock(&chan->buffer_lock);
-}
 
 void tegra_channel_ec_close(struct tegra_mc_vi *vi)
 {
@@ -397,8 +377,7 @@ void tegra_channel_ec_close(struct tegra_mc_vi *vi)
 }
 EXPORT_SYMBOL(tegra_channel_ec_close);
 
-struct tegra_channel_buffer *dequeue_buffer(struct tegra_channel *chan,
-	bool requeue)
+struct tegra_channel_buffer *dequeue_buffer(struct tegra_channel *chan)
 {
 	struct tegra_channel_buffer *buf = NULL;
 
@@ -410,10 +389,6 @@ struct tegra_channel_buffer *dequeue_buffer(struct tegra_channel *chan,
 			 struct tegra_channel_buffer, queue);
 	list_del_init(&buf->queue);
 
-	if (requeue) {
-		/* add dequeued buffer to the ring buffer */
-		add_buffer_to_ring(chan, &buf->buf);
-	}
 done:
 	spin_unlock(&chan->start_lock);
 	return buf;
@@ -2198,7 +2173,6 @@ int tegra_channel_init(struct tegra_channel *chan)
 	init_rwsem(&chan->reset_lock);
 	atomic_set(&chan->is_streaming, DISABLE);
 	spin_lock_init(&chan->capture_state_lock);
-	spin_lock_init(&chan->buffer_lock);
 
 	/* Init video format */
 	vi->fops->vi_init_video_formats(chan);

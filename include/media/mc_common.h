@@ -135,7 +135,6 @@ struct tegra_channel {
 	struct list_head list;
 	struct video_device *video;
 	struct media_pad pad;
-	struct media_pipeline pipe;
 	struct mutex video_lock;
 
 	struct tegra_mc_vi *vi;
@@ -158,11 +157,6 @@ struct tegra_channel {
 	unsigned int *buffer_state;
 	struct vb2_v4l2_buffer **buffers;
 	unsigned long timeout;
-	unsigned int save_index;
-	unsigned int free_index;
-	unsigned int num_buffers;
-	spinlock_t buffer_lock;
-	unsigned int released_bufs;
 
 	unsigned int capture_queue_depth;
 	unsigned int capture_descr_index;
@@ -317,8 +311,7 @@ void tegra_channel_queued_buf_done(struct tegra_channel *chan,
 	enum vb2_buffer_state state, bool multi_queue);
 int tegra_channel_set_stream(struct tegra_channel *chan, bool on);
 int tegra_channel_write_blobs(struct tegra_channel *chan);
-struct tegra_channel_buffer *dequeue_buffer(struct tegra_channel *chan,
-	bool requeue);
+struct tegra_channel_buffer *dequeue_buffer(struct tegra_channel *chan);
 struct tegra_channel_buffer *dequeue_dequeue_buffer(struct tegra_channel *chan);
 int tegra_channel_error_recover(struct tegra_channel *chan, bool queue_error);
 int tegra_channel_alloc_buffer_queue(struct tegra_channel *chan,

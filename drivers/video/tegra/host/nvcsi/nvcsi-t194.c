@@ -168,7 +168,6 @@ int t194_nvcsi_late_probe(struct platform_device *pdev)
 	csi_info.use_max = true;
 	csi_info.bus_width = CSI_BUS_WIDTH;
 	csi_info.lane_num = NUM_LANES;
-	csi_info.pg_clk_rate = PG_CLK_RATE;
 	csi_info.ops = &t194_nvcsi_cdev_ops;
 
 	err = tegra_camera_device_register(&csi_info, nvcsi);

@@ -25,12 +25,7 @@ struct tegra_csi_port {
 	u32 virtual_channel_id;
 
 	/* One pair of sink/source pad has one format */
-	struct v4l2_mbus_framefmt format;
-	const struct tegra_video_format *core_format;
 	unsigned int lanes;
-	unsigned int framerate;
-	unsigned int h_blank;
-	unsigned int v_blank;
 };
 
 struct tegra_csi_device;
@@ -43,7 +38,6 @@ struct tegra_csi_fops {
 		int port_idx);
 	void (*csi_stop_streaming)(struct tegra_csi_channel *chan,
 		int port_idx);
-	int (*hw_init)(struct tegra_csi_device *csi);
 };
 
 struct tegra_csi_device {

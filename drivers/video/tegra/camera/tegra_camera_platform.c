@@ -57,7 +57,6 @@ struct tegra_camera_info {
 	u32 num_device_lanes;
 	u32 sensor_type;
 	u32 memory_latency;
-	bool pg_mode;
 	struct list_head device_list;
 	struct mutex device_list_mutex;
 };
@@ -406,7 +405,6 @@ static int tegra_camera_probe(struct platform_device *pdev)
 	info->num_device_lanes = 0;
 	info->sensor_type = 0;
 	info->memory_latency = 0;
-	info->pg_mode = false;
 	mutex_init(&info->device_list_mutex);
 	INIT_LIST_HEAD(&info->device_list);
 
@@ -424,13 +422,7 @@ static int tegra_camera_probe(struct platform_device *pdev)
 static void update_platform_data(struct tegra_camera_dev_info *cdev,
 	struct tegra_camera_info *info, bool dev_registered)
 {
-	/* TPG: handled differently based on
-	 * throughput calculations.
-	 */
 	static u64 phy_pixel_rate_aggregated;
-
-	if (cdev->sensor_type == SENSORTYPE_VIRTUAL)
-		info->pg_mode = dev_registered;
 
 	if (cdev->sensor_type != SENSORTYPE_NONE)
 		info->sensor_type = cdev->sensor_type;
@@ -671,7 +663,6 @@ static int calculate_and_set_device_clock(struct tegra_camera_info *info,
 	u64 dr = 0;
 	u64 clk_rate = 0;
 	u64 final_pr = (cdev->use_max) ? phy_pr : active_pr;
-	bool set_clk = true;
 
 	if (cdev->hw_type == HWTYPE_NONE)
 		return 0;
@@ -681,8 +672,6 @@ static int calculate_and_set_device_clock(struct tegra_camera_info *info,
 
 	switch (cdev->hw_type) {
 	case HWTYPE_CSI:
-		if (info->sensor_type == SENSORTYPE_SLVSEC)
-			set_clk = false;
 		nr = max_depth * final_pr * overhead;
 		dr = bus_width * 100;
 		if (dr == 0)
@@ -698,8 +687,6 @@ static int calculate_and_set_device_clock(struct tegra_camera_info *info,
 		dr = 100 * ppc;
 		break;
 	case HWTYPE_SLVSEC:
-		if (info->sensor_type != SENSORTYPE_SLVSEC)
-			set_clk = false;
 		nr = lane_speed * lane_num * overhead;
 		dr = bus_width * 100;
 		if (dr == 0)
@@ -711,14 +698,6 @@ static int calculate_and_set_device_clock(struct tegra_camera_info *info,
 
 	/* avoid rounding errors by adding dr to nr */
 	clk_rate = (nr + dr) / dr;
-
-	/* Use special rates based on throughput
-	 * for TPG.
-	 */
-	if (info->pg_mode) {
-		clk_rate =  (cdev->pg_clk_rate) ?
-			cdev->pg_clk_rate : DEFAULT_PG_CLK_RATE;
-	}
 
 	/* no stream active, set to 0 */
 	if (info->num_active_streams == 0)

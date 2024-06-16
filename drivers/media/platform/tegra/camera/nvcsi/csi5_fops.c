@@ -338,18 +338,10 @@ static void csi5_stop_streaming(struct tegra_csi_channel *chan, int port_idx)
 	csi5_stream_close(chan, st_id, csi_pt);
 }
 
-static int csi5_hw_init(struct tegra_csi_device *csi)
-{
-	dev_dbg(csi->dev, "%s\n", __func__);
-
-	return 0;
-}
-
 struct tegra_csi_fops csi5_fops = {
 	.csi_power_on = csi5_power_on,
 	.csi_power_off = csi5_power_off,
 	.csi_start_streaming = csi5_start_streaming,
 	.csi_stop_streaming = csi5_stop_streaming,
-	.hw_init = csi5_hw_init,
 };
 EXPORT_SYMBOL(csi5_fops);
