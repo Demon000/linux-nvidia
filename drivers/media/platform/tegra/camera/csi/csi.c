@@ -400,10 +400,8 @@ static int tegra_csi_init(struct tegra_csi_device *csi,
 		struct platform_device *pdev)
 {
 	int err = 0;
-	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
 
 	csi->dev = &pdev->dev;
-	csi->iomem_base = pdata->aperture[0];
 	csi->fops->hw_init(csi);
 
 	return err;
@@ -416,8 +414,6 @@ static int tegra_csi_channel_init_one(struct tegra_csi_channel *chan)
 	struct tegra_csi_device *csi = chan->csi;
 	int i, ret;
 	const struct tegra_video_format *vf;
-
-	mutex_init(&chan->format_lock);
 
 	vf = tegra_core_get_default_format();
 	if (vf == NULL) {

@@ -69,10 +69,6 @@ struct tegra_channel_buffer {
 	unsigned int capture_descr_index[TEGRA_CSI_BLOCKS];
 
 	dma_addr_t addr;
-
-	u32 thresh[TEGRA_CSI_BLOCKS];
-	int version;
-	int state;
 };
 
 #define to_tegra_channel_buffer(vb) \
@@ -256,7 +252,6 @@ struct tegra_channel {
  * @media_dev: media device
  * @dev: device struct
  * @tegra_camera: tegra camera structure
- * @nvhost_device_data: NvHost VI device information
  *
  * @notifier: V4L2 asynchronous subdevs notifier
  * @entities: entities in the graph as a list of tegra_vi_graph_entity
@@ -265,15 +260,12 @@ struct tegra_channel {
  * @channels: list of channels at the pipeline output and input
  *
  * @ctrl_handler: V4L2 control handler
- *
- * @has_sensors: a flag to indicate whether is a real sensor connecting
  */
 struct tegra_mc_vi {
 	struct platform_device *ndev;
 	struct v4l2_device v4l2_dev;
 	struct media_device media_dev;
 	struct device *dev;
-	struct nvhost_device_data *ndata;
 
 	struct regulator *reg;
 	struct clk *clk;
@@ -284,13 +276,8 @@ struct tegra_mc_vi {
 
 	struct list_head vi_chans;
 
-	bool has_sensors;
 	atomic_t power_on_refcnt;
 	atomic_t vb2_dma_alloc_refcnt;
-	struct mutex bw_update_lock;
-	unsigned long aggregated_kbyteps;
-	unsigned long max_requested_hz;
-	struct mutex mipical_lock;
 
 	bool bypass;
 

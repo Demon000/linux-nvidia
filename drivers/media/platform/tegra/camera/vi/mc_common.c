@@ -73,7 +73,6 @@ static int tegra_vi_v4l2_init(struct tegra_mc_vi *vi)
 		return ret;
 	}
 
-	mutex_init(&vi->bw_update_lock);
 	vi->v4l2_dev.mdev = &vi->media_dev;
 	vi->v4l2_dev.notify = tegra_vi_notify;
 	ret = v4l2_device_register(vi->dev, &vi->v4l2_dev);
@@ -140,7 +139,6 @@ static int tegra_vi_media_controller_init_int(struct tegra_mc_vi *mc_vi,
 	mc_vi->ndev = pdev;
 	mc_vi->dev = &pdev->dev;
 	INIT_LIST_HEAD(&mc_vi->vi_chans);
-	mutex_init(&mc_vi->mipical_lock);
 
 	err = vi_parse_dt(mc_vi, pdev);
 	if (err)

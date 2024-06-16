@@ -14,10 +14,6 @@
 #include "soc/tegra/camrtc-capture-messages.h"
 #include <media/fusa-capture/capture-vi.h>
 
-#define CSI5_TEGRA_CSI_STREAM_0_BASE	0x10000
-#define CSI5_TEGRA_CSI_STREAM_2_BASE	0x20000
-#define CSI5_TEGRA_CSI_STREAM_4_BASE	0x30000
-
 /* Referred from capture-scheduler.c defined in rtcpu-fw */
 #define NUM_CAPTURE_CHANNELS 64
 
@@ -285,7 +281,7 @@ static int csi5_stream_set_config(struct tegra_csi_channel *chan, u32 stream_id,
 	if (s_data)
 		cil_config.mipi_clock_rate = read_mipi_clk_from_dt(chan) / 1000;
 	else
-		cil_config.mipi_clock_rate = csi->clk_freq / 1000;
+		cil_config.mipi_clock_rate = TEGRA_CLOCK_CSI_PORT_MAX / 1000;
 
 	/* Set NVCSI stream config */
 	memset(&msg, 0, sizeof(msg));
@@ -345,10 +341,6 @@ static void csi5_stop_streaming(struct tegra_csi_channel *chan, int port_idx)
 static int csi5_hw_init(struct tegra_csi_device *csi)
 {
 	dev_dbg(csi->dev, "%s\n", __func__);
-
-	csi->iomem[0] = csi->iomem_base + CSI5_TEGRA_CSI_STREAM_0_BASE;
-	csi->iomem[1] = csi->iomem_base + CSI5_TEGRA_CSI_STREAM_2_BASE;
-	csi->iomem[2] = csi->iomem_base + CSI5_TEGRA_CSI_STREAM_4_BASE;
 
 	return 0;
 }

@@ -20,9 +20,6 @@
 #define MAX_CSI_BLOCK_LANES					4
 
 struct tegra_csi_port {
-	void __iomem *pixel_parser;
-	void __iomem *cil;
-
 	u32 csi_port;
 	u32 stream_id;
 	u32 virtual_channel_id;
@@ -53,23 +50,12 @@ struct tegra_csi_device {
 	struct device *dev;
 	struct platform_device *pdev;
 	char devname[32];
-	void __iomem *iomem_base;
-	void __iomem *iomem[3];
-	struct clk *plld_dsi;
-	struct clk *plld;
 
-	struct camera_common_data s_data[6];
-	struct tegra_csi_port *ports;
-	struct media_pad *pads;
-
-	unsigned int clk_freq;
-	int num_ports;
 	int num_channels;
 	struct list_head csi_chans;
 	const struct tegra_csi_fops *fops;
 	atomic_t power_ref;
 
-	struct dentry *debugdir;
 	struct mutex source_update;
 	int sensor_active;
 };
@@ -83,13 +69,11 @@ struct tegra_csi_channel {
 	struct list_head list;
 	struct v4l2_subdev subdev;
 	struct media_pad *pads;
-	struct media_pipeline pipe;
 	struct v4l2_subdev *sensor_sd;
 
 	struct tegra_csi_device *csi;
 	struct tegra_csi_port *ports;
 	unsigned char port[TEGRA_CSI_BLOCKS];
-	struct mutex format_lock;
 	unsigned int numports;
 	unsigned int numlanes;
 	struct camera_common_data *s_data;
