@@ -3,6 +3,8 @@
 #ifndef __CSI_COMMON_H_
 #define __CSI_COMMON_H_
 
+#include <media/v4l2-subdev.h>
+
 #include "soc/tegra/camrtc-capture.h"
 
 #define INVALID_CSI_PORT					0xFF
@@ -20,6 +22,10 @@ enum camera_gang_mode {
 	CAMERA_GANG_B_T
 };
 
-struct tegra_csi_device *tegra_get_mc_csi(void);
+void tegra_csi_channel_sd_set_sensor_sd(struct v4l2_subdev *subdev,
+					struct v4l2_subdev *sensor_sd);
+
+uint32_t tegra_csi_channel_sd_get_vi_csi_port(struct v4l2_subdev *subdev,
+					      uint32_t vi_port);
 
 #endif

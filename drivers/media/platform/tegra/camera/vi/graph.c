@@ -22,6 +22,7 @@
 #include <media/v4l2-common.h>
 #include <media/v4l2-device.h>
 #include <media/v4l2-fwnode.h>
+#include <media/camera_version_utils.h>
 #include <media/tegra_v4l2_camera.h>
 #include <media/mc_common.h>
 

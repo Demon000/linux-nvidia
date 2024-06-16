@@ -13,6 +13,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/semaphore.h>
 #include <linux/syscalls.h>
+#include <media/camera_common.h>
 #include <media/fusa-capture/capture-vi-channel.h>
 #include <media/fusa-capture/capture-vi.h>
 #include <media/mc_common.h>
@@ -284,7 +285,6 @@ done:
 static int tegra_channel_capture_setup(struct tegra_channel *chan, unsigned int vi_port)
 {
 	struct vi_capture_setup setup = default_setup;
-	struct tegra_csi_channel *csi_chan;
 	struct v4l2_subdev *csi_chan_sd;
 	long err;
 
@@ -317,9 +317,7 @@ static int tegra_channel_capture_setup(struct tegra_channel *chan, unsigned int 
 	if (!csi_chan_sd)
 		return 0;
 
-	csi_chan = to_csi_chan(csi_chan_sd);
-
-	setup.csi_port = csi_chan->ports[vi_port].csi_port;
+	setup.csi_port = tegra_csi_channel_sd_get_vi_csi_port(csi_chan_sd, vi_port);
 
 	if (chan->fmtinfo->fourcc == V4L2_PIX_FMT_NV16)
 		setup.channel_flags |= CAPTURE_CHANNEL_FLAG_SEMI_PLANAR;

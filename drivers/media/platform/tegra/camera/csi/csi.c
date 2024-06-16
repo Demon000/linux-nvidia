@@ -38,12 +38,6 @@
 
 static struct tegra_csi_device *mc_csi;
 
-struct tegra_csi_device *tegra_get_mc_csi(void)
-{
-	return mc_csi;
-}
-EXPORT_SYMBOL(tegra_get_mc_csi);
-
 static struct sensor_mode_properties*
 read_mode_from_dt(struct camera_common_data *s_data)
 {
@@ -602,3 +596,24 @@ int tegra_csi_media_controller_remove(struct tegra_csi_device *csi)
 	return 0;
 }
 EXPORT_SYMBOL(tegra_csi_media_controller_remove);
+
+
+void tegra_csi_channel_sd_set_sensor_sd(struct v4l2_subdev *subdev,
+					struct v4l2_subdev *sensor_sd)
+{
+	struct tegra_csi_channel *chan = to_csi_chan(subdev);
+
+	chan->s_data = to_camera_common_data(sensor_sd->dev);
+	chan->sensor_sd = sensor_sd;
+}
+EXPORT_SYMBOL(tegra_csi_channel_sd_set_sensor_sd);
+
+
+uint32_t tegra_csi_channel_sd_get_vi_csi_port(struct v4l2_subdev *subdev,
+					      uint32_t vi_port)
+{
+	struct tegra_csi_channel *chan = to_csi_chan(subdev);
+
+	return chan->ports[vi_port].csi_port;
+}
+EXPORT_SYMBOL(tegra_csi_channel_sd_get_vi_csi_port);

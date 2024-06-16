@@ -1386,31 +1386,25 @@ error:
 
 static void tegra_channel_free_sensor_properties(struct tegra_channel *chan)
 {
-	struct tegra_csi_channel *csi_chan;
 	struct v4l2_subdev *csi_chan_sd;
 
 	csi_chan_sd = tegra_channel_find_linked_csi_subdev(chan);
 	if (!csi_chan_sd)
 		return;
 
-	csi_chan = to_csi_chan(csi_chan_sd);
-	csi_chan->s_data = NULL;
-	csi_chan->sensor_sd = NULL;
+	tegra_csi_channel_sd_set_sensor_sd(csi_chan_sd, NULL);
 }
 
 static int tegra_channel_connect_sensor(
 	struct tegra_channel *chan, struct v4l2_subdev *sensor_sd)
 {
-	struct tegra_csi_channel *csi_chan;
 	struct v4l2_subdev *csi_chan_sd;
 
 	csi_chan_sd = tegra_channel_find_linked_csi_subdev(chan);
 	if (!csi_chan_sd)
 		return 0;
 
-	csi_chan = to_csi_chan(csi_chan_sd);
-	csi_chan->s_data = to_camera_common_data(chan->subdev_on_csi->dev);
-	csi_chan->sensor_sd = chan->subdev_on_csi;
+	tegra_csi_channel_sd_set_sensor_sd(csi_chan_sd, chan->subdev_on_csi);
 
 	return 0;
 }
@@ -1686,17 +1680,7 @@ EXPORT_SYMBOL(tegra_channel_init_subdevices);
 struct v4l2_subdev *tegra_channel_find_linked_csi_subdev(
 	struct tegra_channel *chan)
 {
-	struct tegra_csi_device *csi = tegra_get_mc_csi();
-	struct tegra_csi_channel *csi_it;
-	int i = 0;
-
-	list_for_each_entry(csi_it, &csi->csi_chans, list) {
-		for (i = 0; i < chan->num_subdevs; i++)
-			if (chan->subdev[i] == &csi_it->subdev)
-				return chan->subdev[i];
-	}
-
-	return NULL;
+	return chan->subdev[0];
 }
 EXPORT_SYMBOL(tegra_channel_find_linked_csi_subdev);
 
