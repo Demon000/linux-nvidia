@@ -1398,11 +1398,6 @@ static void tegra_channel_free_sensor_properties(
 	if (s_data == NULL)
 		return;
 
-	if (s_data->sensor_props.sensor_modes)
-		devm_kfree(s_data->dev, s_data->sensor_props.sensor_modes);
-
-	s_data->sensor_props.sensor_modes = NULL;
-
 	/* remove reference to s_data */
 	list_for_each_entry(chan, &csi->csi_chans, list) {
 		if (chan->sensor_sd == sensor_sd)
