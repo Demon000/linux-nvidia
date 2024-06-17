@@ -29,18 +29,10 @@
 #include <media/tegra_camera_platform.h>
 #include "camera/nvcsi/csi5_fops.h"
 
-/* PG rate based on max ISP throughput */
-#define PG_CLK_RATE	102000000
 /* width of interface between VI and CSI */
 #define CSI_BUS_WIDTH	64
 /* number of lanes per brick */
 #define NUM_LANES	4
-
-#define PHY_OFFSET			0x10000U
-#define CIL_A_SW_RESET			0x11024U
-#define CIL_B_SW_RESET			0x110b0U
-#define CSIA				(1 << 20)
-#define CSIH				(1 << 27)
 
 static struct tegra_csi_device *mc_csi;
 struct t194_nvcsi {

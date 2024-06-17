@@ -14,14 +14,6 @@
 #include "soc/tegra/camrtc-capture-messages.h"
 #include <media/fusa-capture/capture-vi.h>
 
-/* Referred from capture-scheduler.c defined in rtcpu-fw */
-#define NUM_CAPTURE_CHANNELS 64
-
-/* Temporary ids for the clients whose channel-id is not yet allocated */
-#define NUM_CAPTURE_TRANSACTION_IDS 64
-
-#define TOTAL_CHANNELS (NUM_CAPTURE_CHANNELS + NUM_CAPTURE_TRANSACTION_IDS)
-
 static inline u32 csi5_port_to_stream(u32 csi_port)
 {
 	return (csi_port < NVCSI_PORT_E) ?
@@ -123,8 +115,6 @@ static int csi5_send_control_message(
 static int csi5_stream_open(struct tegra_csi_channel *chan, u32 stream_id,
 	u32 csi_port)
 {
-
-	struct tegra_csi_device *csi = chan->csi;
 	struct tegra_channel *tegra_chan =
 			v4l2_get_subdev_hostdata(&chan->subdev);
 	struct CAPTURE_CONTROL_MSG msg;
@@ -147,7 +137,6 @@ static int csi5_stream_open(struct tegra_csi_channel *chan, u32 stream_id,
 static void csi5_stream_close(struct tegra_csi_channel *chan, u32 stream_id,
 	u32 csi_port)
 {
-	struct tegra_csi_device *csi = chan->csi;
 	struct tegra_channel *tegra_chan =
 			v4l2_get_subdev_hostdata(&chan->subdev);
 	int err = 0;
@@ -168,7 +157,7 @@ static void csi5_stream_close(struct tegra_csi_channel *chan, u32 stream_id,
 	err = csi5_send_control_message(tegra_chan->tegra_vi_channel[vi_port], &msg,
 							&msg.phy_stream_open_resp.result);
 	if (err < 0) {
-		dev_err(csi->dev, "%s: Error in closing stream_id=%u, csi_port=%u\n",
+		pr_err("%s: Error in closing stream_id=%u, csi_port=%u\n",
 			__func__, stream_id, csi_port);
 	}
 
@@ -178,7 +167,6 @@ static void csi5_stream_close(struct tegra_csi_channel *chan, u32 stream_id,
 static int csi5_stream_set_config(struct tegra_csi_channel *chan, u32 stream_id,
 	u32 csi_port, int csi_lanes)
 {
-	struct tegra_csi_device *csi = chan->csi;
 	struct tegra_channel *tegra_chan =
 			v4l2_get_subdev_hostdata(&chan->subdev);
 
@@ -194,20 +182,20 @@ static int csi5_stream_set_config(struct tegra_csi_channel *chan, u32 stream_id,
 	struct nvcsi_cil_config cil_config;
 	u32 phy_mode = read_phy_mode_from_dt(chan);
 	bool is_cphy = (phy_mode == CSI_PHY_MODE_CPHY);
-	dev_dbg(csi->dev, "%s: stream_id=%u, csi_port=%u\n",
+	pr_debug("%s: stream_id=%u, csi_port=%u\n",
 		__func__, stream_id, csi_port);
 
 	/* Attempt to find the brick config from the device tree */
 	if (s_data) {
 		int idx = s_data->mode_prop_idx;
 
-		dev_dbg(csi->dev, "cil_settingtime is pulled from device");
+		pr_debug("cil_settingtime is pulled from device");
 		if (idx < s_data->sensor_props.num_modes) {
 			mode = &s_data->sensor_props.sensor_modes[idx];
 			cil_settletime = mode->signal_properties.cil_settletime;
 			lane_polarity = mode->signal_properties.lane_polarity;
 		} else {
-			dev_dbg(csi->dev, "mode not listed in DT, use default");
+			pr_debug("mode not listed in DT, use default");
 			cil_settletime = 0;
 			lane_polarity = 0;
 		}
@@ -215,15 +203,13 @@ static int csi5_stream_set_config(struct tegra_csi_channel *chan, u32 stream_id,
 		int err = 0;
 		const char *str = NULL;
 
-		dev_dbg(csi->dev,
-			"cil_settletime is pulled from device of_node");
+		pr_debug("cil_settletime is pulled from device of_node");
 		err = of_property_read_string(chan->of_node, "cil_settletime",
 			&str);
 		if (!err) {
 			err = kstrtou32(str, 10, &cil_settletime);
 			if (err) {
-				dev_dbg(csi->dev,
-					"no cil_settletime in of_node");
+				pr_debug("no cil_settletime in of_node");
 				cil_settletime = 0;
 			}
 		}
@@ -234,8 +220,7 @@ static int csi5_stream_set_config(struct tegra_csi_channel *chan, u32 stream_id,
 		if (!err) {
 			err = kstrtou32(str, 10, &lane_polarity);
 			if (err) {
-				dev_dbg(csi->dev,
-					"no lane_polarity in of_node");
+				pr_debug("no lane_polarity in of_node");
 				lane_polarity = 0;
 			}
 		}
@@ -283,7 +268,6 @@ static int csi5_stream_set_config(struct tegra_csi_channel *chan, u32 stream_id,
 static int csi5_start_streaming(struct tegra_csi_channel *chan, int port_idx)
 {
 	int err = 0, num_lanes;
-	struct tegra_csi_device *csi = chan->csi;
 	struct tegra_csi_port *port = &chan->ports[port_idx];
 	u32 csi_pt, st_id, vc_id;
 
@@ -292,7 +276,7 @@ static int csi5_start_streaming(struct tegra_csi_channel *chan, int port_idx)
 	vc_id = port->virtual_channel_id;
 	num_lanes = port->lanes;
 
-	dev_dbg(csi->dev, "%s: csi_pt=%u, st_id=%u, vc_id=%u\n",
+	dev_dbg("%s: csi_pt=%u, st_id=%u, vc_id=%u\n",
 		__func__, csi_pt, st_id, vc_id);
 
 	csi5_stream_set_config(chan, st_id, csi_pt, num_lanes);
@@ -303,7 +287,6 @@ static int csi5_start_streaming(struct tegra_csi_channel *chan, int port_idx)
 
 static void csi5_stop_streaming(struct tegra_csi_channel *chan, int port_idx)
 {
-	struct tegra_csi_device *csi = chan->csi;
 	struct tegra_csi_port *port = &chan->ports[port_idx];
 	u32 csi_pt, st_id, vc_id;
 
@@ -311,7 +294,7 @@ static void csi5_stop_streaming(struct tegra_csi_channel *chan, int port_idx)
 	st_id = csi5_port_to_stream(port->csi_port);
 	vc_id = port->virtual_channel_id;
 
-	dev_dbg(csi->dev, "%s: csi_pt=%u, st_id=%u, vc_id=%u\n",
+	pr_debug("%s: csi_pt=%u, st_id=%u, vc_id=%u\n",
 		__func__, csi_pt, st_id, vc_id);
 
 	csi5_stream_close(chan, st_id, csi_pt);
