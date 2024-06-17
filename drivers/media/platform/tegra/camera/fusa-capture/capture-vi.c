@@ -820,16 +820,6 @@ syncpt_fail:
 }
 EXPORT_SYMBOL_GPL(vi_capture_setup);
 
-struct tegra_vi_channel *get_tegra_vi_channel(
-	unsigned int stream_id,
-	unsigned int virtual_channel_id)
-{
-	if (stream_id >= MAX_NVCSI_STREAM_IDS || virtual_channel_id >= MAX_VIRTUAL_CHANNEL_PER_STREAM)
-		return NULL;
-
-	return channels[stream_id][virtual_channel_id];
-}
-
 int vi_capture_reset(
 	struct tegra_vi_channel *chan,
 	uint32_t reset_flags)

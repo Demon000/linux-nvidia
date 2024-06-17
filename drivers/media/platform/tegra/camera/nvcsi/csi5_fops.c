@@ -129,21 +129,6 @@ static int csi5_stream_open(struct tegra_csi_channel *chan, u32 stream_id,
 			v4l2_get_subdev_hostdata(&chan->subdev);
 	struct CAPTURE_CONTROL_MSG msg;
 	int vi_port = 0;
-	/* If the tegra_vi_channel is NULL it means that is PCL TPG usecase where fusa UMD opens the
-	 * VI channel and sends channel messages but for CSI messages it uses this V4L2 path.
-	 * In such a case query fusacapture KMD for the tegra_vi_channel associated with the
-	 * current stream id/vc id combination.
-	 * If still NULL, we are in erroroneous state, exit with error.
-	 */
-	if (tegra_chan->tegra_vi_channel[0] == NULL) {
-		tegra_chan->tegra_vi_channel[0] = get_tegra_vi_channel(stream_id,
-								tegra_chan->virtual_channel);
-		if (tegra_chan->tegra_vi_channel[0] == NULL) {
-			dev_err(csi->dev, "%s: VI channel not found for stream- %d vc- %d\n",
-				__func__,stream_id,tegra_chan->virtual_channel);
-			return -EINVAL;
-		}
-	}
 
 	/* Open NVCSI stream */
 	memset(&msg, 0, sizeof(msg));
@@ -154,8 +139,6 @@ static int csi5_stream_open(struct tegra_csi_channel *chan, u32 stream_id,
 
 	if (tegra_chan->valid_ports > 1)
 		vi_port = (stream_id > 0) ? 1 : 0;
-	else
-		vi_port = 0;
 
 	return csi5_send_control_message(tegra_chan->tegra_vi_channel[vi_port], &msg,
 							&msg.phy_stream_open_resp.result);
@@ -181,8 +164,6 @@ static void csi5_stream_close(struct tegra_csi_channel *chan, u32 stream_id,
 
 	if (tegra_chan->valid_ports > 1)
 		vi_port = (stream_id > 0) ? 1 : 0;
-	else
-		vi_port = 0;
 
 	err = csi5_send_control_message(tegra_chan->tegra_vi_channel[vi_port], &msg,
 							&msg.phy_stream_open_resp.result);
@@ -294,8 +275,6 @@ static int csi5_stream_set_config(struct tegra_csi_channel *chan, u32 stream_id,
 
 	if (tegra_chan->valid_ports > 1)
 		vi_port = (stream_id > 0) ? 1 : 0;
-	else
-		vi_port = 0;
 
 	return csi5_send_control_message(tegra_chan->tegra_vi_channel[vi_port], &msg,
 							&msg.csi_stream_set_config_resp.result);
