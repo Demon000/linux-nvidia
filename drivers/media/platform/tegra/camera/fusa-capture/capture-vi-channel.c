@@ -379,6 +379,8 @@ static long vi_channel_ioctl(
 	void __user *ptr = (void __user *)arg;
 	int err = -EFAULT;
 
+	pr_err("%s: ioctl: %u\n", current->comm, _IOC_NR(cmd));
+
 	switch (_IOC_NR(cmd)) {
 	case _IOC_NR(VI_CAPTURE_SETUP): {
 		struct vi_capture_setup setup;

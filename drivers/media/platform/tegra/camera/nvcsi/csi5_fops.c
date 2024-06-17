@@ -9,7 +9,6 @@
 #include <media/mc_common.h>
 #include "csi5_fops.h"
 #include <linux/nospec.h>
-#include <linux/nvhost.h>
 #include <linux/tegra-capture-ivc.h>
 #include "soc/tegra/camrtc-capture-messages.h"
 #include <media/fusa-capture/capture-vi.h>
@@ -18,28 +17,6 @@ static inline u32 csi5_port_to_stream(u32 csi_port)
 {
 	return (csi_port < NVCSI_PORT_E) ?
 		csi_port : (((csi_port - NVCSI_PORT_E) >> 1U) + NVCSI_PORT_E);
-}
-
-static int csi5_power_on(struct tegra_csi_device *csi)
-{
-	int err = 0;
-
-	dev_dbg(csi->dev, "%s\n", __func__);
-
-	err = nvhost_module_busy(csi->pdev);
-	if (err)
-		dev_err(csi->dev, "%s:cannot enable csi\n", __func__);
-
-	return err;
-}
-
-static int csi5_power_off(struct tegra_csi_device *csi)
-{
-	dev_dbg(csi->dev, "%s\n", __func__);
-
-	nvhost_module_idle(csi->pdev);
-
-	return 0;
 }
 
 static int verify_capture_control_response(const uint32_t result)
@@ -276,7 +253,7 @@ static int csi5_start_streaming(struct tegra_csi_channel *chan, int port_idx)
 	vc_id = port->virtual_channel_id;
 	num_lanes = port->lanes;
 
-	dev_dbg("%s: csi_pt=%u, st_id=%u, vc_id=%u\n",
+	pr_debug("%s: csi_pt=%u, st_id=%u, vc_id=%u\n",
 		__func__, csi_pt, st_id, vc_id);
 
 	csi5_stream_set_config(chan, st_id, csi_pt, num_lanes);
@@ -301,8 +278,6 @@ static void csi5_stop_streaming(struct tegra_csi_channel *chan, int port_idx)
 }
 
 struct tegra_csi_fops csi5_fops = {
-	.csi_power_on = csi5_power_on,
-	.csi_power_off = csi5_power_off,
 	.csi_start_streaming = csi5_start_streaming,
 	.csi_stop_streaming = csi5_stop_streaming,
 };

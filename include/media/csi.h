@@ -32,8 +32,6 @@ struct tegra_csi_device;
 struct tegra_csi_channel;
 
 struct tegra_csi_fops {
-	int (*csi_power_on)(struct tegra_csi_device *csi);
-	int (*csi_power_off)(struct tegra_csi_device *csi);
 	int (*csi_start_streaming)(struct tegra_csi_channel *chan,
 		int port_idx);
 	void (*csi_stop_streaming)(struct tegra_csi_channel *chan,

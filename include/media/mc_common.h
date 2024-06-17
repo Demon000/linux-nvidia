@@ -221,7 +221,6 @@ struct tegra_channel {
 	struct device_node *endpoint_node; /* endpoint of_node in vi */
 	unsigned int subdevs_bound;
 	unsigned int link_status;
-	struct nvcsi_deskew_context *deskew_ctx;
 	struct tegra_vi_channel *tegra_vi_channel[TEGRA_CSI_BLOCKS];
 	struct capture_descriptor *request[TEGRA_CSI_BLOCKS];
 	dma_addr_t request_iova[TEGRA_CSI_BLOCKS];

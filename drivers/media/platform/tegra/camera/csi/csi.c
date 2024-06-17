@@ -24,19 +24,8 @@
 #include <media/mc_common.h>
 #include <media/csi.h>
 #include <trace/events/camera_common.h>
-#include <linux/nvhost.h>
 #include <asm/barrier.h>
 #include "soc/tegra/camrtc-capture.h"
-#include <uapi/linux/nvhost_nvcsi_ioctl.h>
-#include "nvcsi/deskew.h"
-
-/*
- * deskew should be run when the sensor data rate is >= 1.5 gbps
- * data is sent on both rising/falling edges of clock, so /2
- */
-#define CLK_HZ_FOR_DESKEW ((1500*1000*1000)/2)
-
-static struct tegra_csi_device *mc_csi;
 
 static struct sensor_mode_properties*
 read_mode_from_dt(struct camera_common_data *s_data)
@@ -91,19 +80,13 @@ u64 read_mipi_clk_from_dt(struct tegra_csi_channel *chan)
 static int tegra_csi_power(struct tegra_csi_device *csi,
 			struct tegra_csi_channel *chan, int enable)
 {
-	int err = 0;
-
 	trace_csi_s_power("enable", enable);
-	if (enable) {
-		err = csi->fops->csi_power_on(csi);
-		if (!err)
-			atomic_inc(&csi->power_ref);
-	} else {
-		err = csi->fops->csi_power_off(csi);
-		if (!err)
-			atomic_dec(&csi->power_ref);
-	}
-	return err;
+	if (enable)
+		atomic_inc(&csi->power_ref);
+	else
+		atomic_dec(&csi->power_ref);
+
+	return 0;
 }
 
 static int tegra_csi_s_power(struct v4l2_subdev *subdev, int enable)
@@ -164,69 +147,6 @@ stream_okay:
 	return 0;
 }
 
-static void deskew_setup(struct tegra_csi_channel *chan,
-				struct nvcsi_deskew_context *deskew_ctx)
-{
-	struct sensor_signal_properties *sig_props;
-	struct sensor_properties *props;
-	int i;
-	int mode_idx = -1;
-	u64 pix_clk_hz = 0;
-	u32 deskew_enable = 0;
-	unsigned int csi_lane_start = 0;
-	unsigned int csi_port, csi_lanes;
-
-	if (chan->s_data == NULL)
-		return;
-
-	mode_idx = chan->s_data->mode_prop_idx;
-	props =  &chan->s_data->sensor_props;
-	sig_props = &props->sensor_modes[mode_idx].signal_properties;
-	if (sig_props->serdes_pixel_clock.val != 0ULL)
-		pix_clk_hz = sig_props->serdes_pixel_clock.val;
-	else
-		pix_clk_hz = sig_props->pixel_clock.val;
-	deskew_enable = sig_props->deskew_initial_enable;
-
-	if (pix_clk_hz >= CLK_HZ_FOR_DESKEW && deskew_enable) {
-		csi_port = chan->ports[0].csi_port;
-		csi_lanes = chan->ports[0].lanes;
-		switch (csi_port) {
-		case NVCSI_PORT_A:
-			csi_lane_start = NVCSI_PHY_0_NVCSI_CIL_A_IO0;
-			break;
-		case NVCSI_PORT_B:
-			csi_lane_start = NVCSI_PHY_0_NVCSI_CIL_B_IO0;
-			break;
-		case NVCSI_PORT_C:
-			csi_lane_start = NVCSI_PHY_1_NVCSI_CIL_A_IO0;
-			break;
-		case NVCSI_PORT_D:
-			csi_lane_start = NVCSI_PHY_1_NVCSI_CIL_B_IO0;
-			break;
-		case NVCSI_PORT_E:
-			csi_lane_start = NVCSI_PHY_2_NVCSI_CIL_A_IO0;
-			break;
-		case NVCSI_PORT_F:
-			csi_lane_start = NVCSI_PHY_2_NVCSI_CIL_B_IO0;
-			break;
-		case NVCSI_PORT_G:
-			csi_lane_start = NVCSI_PHY_3_NVCSI_CIL_A_IO0;
-			break;
-		case NVCSI_PORT_H:
-			csi_lane_start = NVCSI_PHY_3_NVCSI_CIL_B_IO0;
-			break;
-		default:
-			break;
-		}
-		deskew_ctx->deskew_lanes = 0;
-		for (i = 0; i < csi_lanes; ++i)
-			deskew_ctx->deskew_lanes |= csi_lane_start << i;
-		nvcsi_deskew_setup(deskew_ctx);
-	}
-
-}
-
 static int tegra_csi_s_stream(struct v4l2_subdev *subdev, int enable)
 {
 	struct tegra_csi_device *csi;
@@ -257,9 +177,6 @@ static int tegra_csi_s_stream(struct v4l2_subdev *subdev, int enable)
 				ret = tegra_csi_start_streaming(chan, i);
 				if (ret)
 					goto start_fail;
-				if (!tegra_chan->bypass)
-					deskew_setup(chan,
-						tegra_chan->deskew_ctx);
 		} else
 			tegra_csi_stop_streaming(chan, i);
 	}
@@ -519,7 +436,6 @@ int tegra_csi_media_controller_init(struct tegra_csi_device *csi,
 
 	if (!csi)
 		return -EINVAL;
-	mc_csi = csi;
 
 	csi->dev = &pdev->dev;
 	csi->pdev = pdev;

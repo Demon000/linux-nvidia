@@ -8,7 +8,6 @@
 #include <linux/bitmap.h>
 #include <linux/clk.h>
 #include <linux/delay.h>
-#include <linux/nvhost.h>
 #include <linux/lcm.h>
 #include <linux/list.h>
 #include <linux/nospec.h>
@@ -35,10 +34,6 @@
 #include <linux/clk/tegra.h>
 #define CREATE_TRACE_POINTS
 #include <trace/events/camera_common.h>
-
-#include <uapi/linux/nvhost_nvcsi_ioctl.h>
-
-#include "nvcsi/deskew.h"
 
 #define HDMI_IN_RATE 550000000
 /* number of lanes per brick */
@@ -647,8 +642,6 @@ int tegra_channel_set_stream(struct tegra_channel *chan, bool on)
 	int num_sd;
 	int ret = 0;
 	int err = 0;
-	int max_deskew_attempts = 5;
-	int deskew_attempts = 0;
 	struct v4l2_subdev *sd;
 
 	if (atomic_read(&chan->is_streaming) == on)
@@ -660,36 +653,13 @@ int tegra_channel_set_stream(struct tegra_channel *chan, bool on)
 		/* Enable CSI before sensor. Reason is as follows:
 		 * CSI is able to catch the very first clk transition.
 		 */
-		while (deskew_attempts < max_deskew_attempts) {
-			for (num_sd = 0; num_sd < chan->num_subdevs; num_sd++) {
-				sd = chan->subdev[num_sd];
+		for (num_sd = 0; num_sd < chan->num_subdevs; num_sd++) {
+			sd = chan->subdev[num_sd];
 
-				trace_tegra_channel_set_stream(sd->name, on);
-				err = v4l2_subdev_call(sd, video, s_stream, on);
-				if (!ret && err < 0 && err != -ENOIOCTLCMD)
-					ret = err;
-			}
-			if (!chan->bypass &&
-					chan->deskew_ctx->deskew_lanes) {
-				err = nvcsi_deskew_apply_check(
-							chan->deskew_ctx);
-				++deskew_attempts;
-				if (err && deskew_attempts <
-							max_deskew_attempts) {
-					for (num_sd = 0;
-						num_sd < chan->num_subdevs;
-								num_sd++) {
-						sd = chan->subdev[num_sd];
-						trace_tegra_channel_set_stream(
-							sd->name, false);
-						err = v4l2_subdev_call(sd,
-							video,
-							s_stream, false);
-					}
-				} else
-					break;
-			} else
-				break;
+			trace_tegra_channel_set_stream(sd->name, on);
+			err = v4l2_subdev_call(sd, video, s_stream, on);
+			if (!ret && err < 0 && err != -ENOIOCTLCMD)
+				ret = err;
 		}
 	} else {
 		for (num_sd = chan->num_subdevs - 1; num_sd >= 0; num_sd--) {
@@ -2213,19 +2183,10 @@ int tegra_channel_init(struct tegra_channel *chan)
 		goto vb2_queue_error;
 	}
 
-	chan->deskew_ctx = devm_kzalloc(vi->dev,
-			sizeof(struct nvcsi_deskew_context), GFP_KERNEL);
-	if (!chan->deskew_ctx) {
-		ret = -ENOMEM;
-		goto deskew_ctx_err;
-	}
-
 	chan->init_done = true;
 
 	return 0;
 
-deskew_ctx_err:
-	devm_kfree(vi->dev, chan->deskew_ctx);
 vb2_queue_error:
 #if IS_ENABLED(CONFIG_VIDEOBUF2_DMA_CONTIG)
 	tegra_vb2_dma_cleanup(vi_unit_dev, chan->alloc_ctx,

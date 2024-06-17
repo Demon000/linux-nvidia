@@ -102,8 +102,6 @@ struct sensor_signal_properties {
 	__u32 dpcm_enable;
 	__u32 tegra_sinterface;
 	__u32 phy_mode;
-	__u32 deskew_initial_enable;
-	__u32 deskew_periodic_enable;
 	union __u64val serdes_pixel_clock;
 	union __u64val mipi_clock;
 };
