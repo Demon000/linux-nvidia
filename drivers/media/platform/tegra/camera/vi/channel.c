@@ -1361,8 +1361,6 @@ static int map_to_sensor_type(u32 phy_mode)
 		return SENSORTYPE_DPHY;
 	case CSI_PHY_MODE_CPHY:
 		return SENSORTYPE_CPHY;
-	case SLVS_EC:
-		return SENSORTYPE_SLVSEC;
 	default:
 		return SENSORTYPE_OTHER;
 	}
@@ -1523,9 +1521,6 @@ int tegra_channel_init_subdevices(struct tegra_channel *chan)
 	sd = media_entity_to_v4l2_subdev(entity);
 	v4l2_set_subdev_hostdata(sd, chan);
 	chan->subdev[num_sd++] = sd;
-
-	/* verify if the immediate subdevice is slvsec */
-	chan->is_slvsec = (strstr(sd->name, "slvs") != NULL) ? 1 : 0;
 
 	/* Add subdev name to this video dev name with vi-output tag*/
 	len = snprintf(chan->video->name, sizeof(chan->video->name), "%s, %s",
@@ -2040,13 +2035,14 @@ static int tegra_channel_csi_init(struct tegra_channel *chan)
 
 	/* based on gang mode valid ports will be updated - set default to 1 */
 	chan->valid_ports = chan->total_ports ? 1 : 0;
-	return ret;
+
+	return 0;
 }
 
 int tegra_channel_init_video(struct tegra_channel *chan)
 {
 	struct tegra_mc_vi *vi = chan->vi;
-	int ret = 0, len = 0;
+	int ret;
 
 	if (chan->video) {
 		dev_err(&chan->video->dev, "video device already allocated\n");
@@ -2076,10 +2072,11 @@ int tegra_channel_init_video(struct tegra_channel *chan)
 	chan->video->fops = &tegra_channel_fops;
 	chan->video->v4l2_dev = &vi->v4l2_dev;
 	chan->video->queue = &chan->queue;
-	len = snprintf(chan->video->name, sizeof(chan->video->name), "%s-%s-%u",
+
+	ret = snprintf(chan->video->name, sizeof(chan->video->name), "%s-%s-%u",
 		dev_name(vi->dev), "output",
 		chan->port[0]);
-	if (len < 0) {
+	if (ret < 0) {
 		ret = -EINVAL;
 		goto ctrl_init_error;
 	}
@@ -2098,9 +2095,10 @@ int tegra_channel_init_video(struct tegra_channel *chan)
 	return ret;
 
 ctrl_init_error:
-	video_device_release(chan->video);
-	media_entity_cleanup(&chan->video->entity);
 	v4l2_ctrl_handler_free(&chan->ctrl_handler);
+	media_entity_cleanup(&chan->video->entity);
+	video_device_release(chan->video);
+
 	return ret;
 }
 EXPORT_SYMBOL(tegra_channel_init_video);

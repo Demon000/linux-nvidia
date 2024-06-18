@@ -81,6 +81,7 @@ static int tegra_csi_power(struct tegra_csi_device *csi,
 			struct tegra_csi_channel *chan, int enable)
 {
 	trace_csi_s_power("enable", enable);
+
 	if (enable)
 		atomic_inc(&csi->power_ref);
 	else
@@ -120,49 +121,16 @@ static void tegra_csi_stop_streaming(struct tegra_csi_channel *chan, int port_id
 	csi->fops->csi_stop_streaming(chan, port_idx);
 }
 
-static int update_video_source(struct tegra_csi_device *csi, int on)
-{
-	mutex_lock(&csi->source_update);
-
-	if (!on) {
-		csi->sensor_active--;
-		WARN_ON(csi->sensor_active < 0);
-		goto stream_okay;
-	}
-
-	if (csi->sensor_active >= 0) {
-		csi->sensor_active++;
-		goto stream_okay;
-	}
-
-	mutex_unlock(&csi->source_update);
-	dev_err(csi->dev, "Request rejected for new sensor stream\n");
-	dev_err(csi->dev, "Active sensor streams %d\n", csi->sensor_active);
-
-	return -EINVAL;
-
-stream_okay:
-	mutex_unlock(&csi->source_update);
-
-	return 0;
-}
-
 static int tegra_csi_s_stream(struct v4l2_subdev *subdev, int enable)
 {
-	struct tegra_csi_device *csi;
 	struct tegra_csi_channel *chan = to_csi_chan(subdev);
 	struct tegra_channel *tegra_chan = v4l2_get_subdev_hostdata(subdev);
 	int i, ret = 0;
 
 	if (atomic_read(&chan->is_streaming) == enable)
 		return 0;
+
 	trace_csi_s_stream("enable", enable);
-	csi = to_csi(subdev);
-	if (!csi)
-		return -EINVAL;
-	ret = update_video_source(csi, enable);
-	if (ret)
-		return ret;
 
 	/* if it is bypass and real sensor, return here
 	 * else let tegra_csi_start_streaming handle it
@@ -172,6 +140,7 @@ static int tegra_csi_s_stream(struct v4l2_subdev *subdev, int enable)
 		atomic_set(&chan->is_streaming, enable);
 		return 0;
 	}
+
 	for (i = 0; i < tegra_chan->valid_ports; i++) {
 		if (enable) {
 				ret = tegra_csi_start_streaming(chan, i);
@@ -180,15 +149,17 @@ static int tegra_csi_s_stream(struct v4l2_subdev *subdev, int enable)
 		} else
 			tegra_csi_stop_streaming(chan, i);
 	}
+
 	atomic_set(&chan->is_streaming, enable);
 	return ret;
+
 start_fail:
-	update_video_source(csi, 0);
 	/* Reverse sequence to stop streaming on all valid_ports
 	 * i is the current failing port, need to stop ports 0 ~ (i-1)
 	 */
 	for (i = i - 1; i >= 0; i--)
 		tegra_csi_stop_streaming(chan, i);
+
 	return ret;
 }
 
@@ -196,6 +167,7 @@ static int csi_is_power_on(struct tegra_csi_device *csi)
 {
 	return atomic_read(&csi->power_ref);
 }
+
 static int tegra_csi_g_input_status(struct v4l2_subdev *sd, u32 *status)
 {
 	struct tegra_csi_device *csi = to_csi(sd);
@@ -439,10 +411,9 @@ int tegra_csi_media_controller_init(struct tegra_csi_device *csi,
 
 	csi->dev = &pdev->dev;
 	csi->pdev = pdev;
-	csi->sensor_active = 0;
 	atomic_set(&csi->power_ref, 0);
-	mutex_init(&csi->source_update);
 	INIT_LIST_HEAD(&csi->csi_chans);
+
 	ret = csi_parse_dt(csi, pdev);
 	if (ret < 0)
 		return ret;

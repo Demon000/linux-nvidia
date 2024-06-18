@@ -28,7 +28,6 @@
 #define DEFAULT_FRAMERATE	30
 #define BPP_MEM			2
 #define VI_CSI_CLK_SCALE	110
-#define SLVSEC_STREAM_MAIN	0U
 
 #define VI_CHANNEL_DEV "/dev/capture-vi-channel"
 #define VI_CHAN_PATH_MAX 40
@@ -300,12 +299,6 @@ static int tegra_channel_capture_setup(struct tegra_channel *chan, unsigned int 
 	if (chan->request[vi_port] == NULL) {
 		dev_err(chan->vi->dev, "dma_alloc_coherent failed\n");
 		return -ENOMEM;
-	}
-
-	if (chan->is_slvsec) {
-		setup.channel_flags |= CAPTURE_CHANNEL_FLAG_SLVSEC;
-		setup.slvsec_stream_main = SLVSEC_STREAM_MAIN;
-		setup.slvsec_stream_sub = SLVSEC_STREAM_DISABLED;
 	}
 
 	/* Set the NVCSI PixelParser index (Stream ID) and VC ID*/

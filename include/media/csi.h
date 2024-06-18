@@ -47,9 +47,6 @@ struct tegra_csi_device {
 	struct list_head csi_chans;
 	const struct tegra_csi_fops *fops;
 	atomic_t power_ref;
-
-	struct mutex source_update;
-	int sensor_active;
 };
 
 /*

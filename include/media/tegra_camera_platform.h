@@ -14,7 +14,6 @@
 enum tegra_camera_hw_type {
 	HWTYPE_NONE = 0,
 	HWTYPE_CSI,
-	HWTYPE_SLVSEC,
 	HWTYPE_VI,
 	HWTYPE_ISPA,
 	HWTYPE_ISPB,
@@ -28,7 +27,6 @@ enum tegra_camera_sensor_type {
 	SENSORTYPE_NONE = 0,
 	SENSORTYPE_DPHY,
 	SENSORTYPE_CPHY,
-	SENSORTYPE_SLVSEC,
 	/* HDMI-IN or other inputs */
 	SENSORTYPE_OTHER,
 	SENSORTYPE_MAX,

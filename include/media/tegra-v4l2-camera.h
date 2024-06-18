@@ -79,7 +79,6 @@
 
 #define	CSI_PHY_MODE_DPHY	0
 #define	CSI_PHY_MODE_CPHY	1
-#define	SLVS_EC			2
 
 struct unpackedU64 {
 	__u32 high;

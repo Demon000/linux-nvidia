@@ -686,12 +686,6 @@ static int calculate_and_set_device_clock(struct tegra_camera_info *info,
 		nr = final_pr * overhead;
 		dr = 100 * ppc;
 		break;
-	case HWTYPE_SLVSEC:
-		nr = lane_speed * lane_num * overhead;
-		dr = bus_width * 100;
-		if (dr == 0)
-			return -EINVAL;
-		break;
 	default:
 		return -EINVAL;
 	}

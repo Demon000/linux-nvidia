@@ -42,7 +42,6 @@
 enum channel_capture_state {
 	CAPTURE_IDLE = 0,
 	CAPTURE_GOOD,
-	CAPTURE_TIMEOUT,
 	CAPTURE_ERROR,
 };
 
@@ -225,7 +224,6 @@ struct tegra_channel {
 	struct capture_descriptor *request[TEGRA_CSI_BLOCKS];
 	dma_addr_t request_iova[TEGRA_CSI_BLOCKS];
 
-	bool is_slvsec;
 	int is_interlaced;
 	enum interlaced_type interlace_type;
 	int interlace_bplfactor;
