@@ -32,7 +32,6 @@
 #define NUM_LANES	4
 
 struct t194_nvcsi {
-	struct platform_device *pdev;
 	struct tegra_csi_device csi;
 	struct clk *clk;
 };
@@ -45,20 +44,6 @@ static const struct of_device_id tegra194_nvcsi_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, tegra194_nvcsi_of_match);
 
-static int t194_nvcsi_early_probe(struct platform_device *pdev)
-{
-	struct t194_nvcsi *nvcsi;
-
-	nvcsi = devm_kzalloc(&pdev->dev, sizeof(*nvcsi), GFP_KERNEL);
-	if (!nvcsi)
-		return -ENOMEM;
-
-	nvcsi->pdev = pdev;
-	platform_set_drvdata(pdev, nvcsi);
-
-	return 0;
-}
-
 static int t194_nvcsi_set_rate(struct tegra_camera_dev_info *cdev_info, unsigned long rate)
 {
 	struct t194_nvcsi *nvcsi = platform_get_drvdata(cdev_info->pdev);
@@ -70,11 +55,24 @@ static struct tegra_camera_dev_ops t194_nvcsi_cdev_ops = {
 	.set_rate = t194_nvcsi_set_rate,
 };
 
-static int t194_nvcsi_late_probe(struct platform_device *pdev)
+static int t194_nvcsi_probe(struct platform_device *pdev)
 {
-	struct t194_nvcsi *nvcsi = platform_get_drvdata(pdev);
 	struct tegra_camera_dev_info csi_info;
+	struct device *dev = &pdev->dev;
+	struct t194_nvcsi *nvcsi;
 	int err;
+
+	nvcsi = devm_kzalloc(&pdev->dev, sizeof(*nvcsi), GFP_KERNEL);
+	if (!nvcsi)
+		return -ENOMEM;
+
+	platform_set_drvdata(pdev, nvcsi);
+
+	nvcsi->clk = devm_clk_get(dev, NULL);
+	if (IS_ERR(nvcsi->clk)) {
+		dev_err(&pdev->dev, "failed to get clock\n");
+		return PTR_ERR(nvcsi->clk);
+	}
 
 	memset(&csi_info, 0, sizeof(csi_info));
 	csi_info.pdev = pdev;
@@ -90,29 +88,12 @@ static int t194_nvcsi_late_probe(struct platform_device *pdev)
 
 	nvcsi->csi.fops = &csi5_fops;
 	err = tegra_csi_media_controller_init(&nvcsi->csi, pdev);
-
-	return 0;
-}
-
-static int t194_nvcsi_probe(struct platform_device *pdev)
-{
-	struct device *dev = &pdev->dev;
-	struct t194_nvcsi *nvcsi;
-	int err;
-
-	err = t194_nvcsi_early_probe(pdev);
-	if (err)
+	if (err) {
+		tegra_camera_device_unregister(nvcsi);
 		return err;
-
-	nvcsi = platform_get_drvdata(pdev);
-
-	nvcsi->clk = devm_clk_get(dev, NULL);
-	if (IS_ERR(nvcsi->clk)) {
-		dev_err(&pdev->dev, "failed to get clock\n");
-		return PTR_ERR(nvcsi->clk);
 	}
 
-	return t194_nvcsi_late_probe(pdev);
+	return 0;
 }
 
 static int __exit t194_nvcsi_remove(struct platform_device *dev)
