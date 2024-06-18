@@ -16,8 +16,6 @@ enum tegra_camera_hw_type {
 	HWTYPE_CSI,
 	HWTYPE_VI,
 	HWTYPE_ISPA,
-	HWTYPE_ISPB,
-	HWTYPE_MAX,
 };
 
 /**
@@ -29,7 +27,6 @@ enum tegra_camera_sensor_type {
 	SENSORTYPE_CPHY,
 	/* HDMI-IN or other inputs */
 	SENSORTYPE_OTHER,
-	SENSORTYPE_MAX,
 };
 
 struct tegra_camera_dev_info;

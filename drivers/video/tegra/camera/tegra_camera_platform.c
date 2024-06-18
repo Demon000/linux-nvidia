@@ -682,7 +682,6 @@ static int calculate_and_set_device_clock(struct tegra_camera_info *info,
 		dr = 100 * (ppc / ppc_divider);
 		break;
 	case HWTYPE_ISPA:
-	case HWTYPE_ISPB:
 		nr = final_pr * overhead;
 		dr = 100 * ppc;
 		break;
