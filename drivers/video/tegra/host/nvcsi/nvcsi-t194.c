@@ -3,7 +3,6 @@
  * SPDX-FileCopyrightText: Copyright (C) 2017-2023 NVIDIA CORPORATION.  All rights reserved.
  */
 
-#include <uapi/linux/nvhost_nvcsi_ioctl.h>
 #include <linux/tegra-camera-rtcpu.h>
 
 #include <asm/ioctls.h>
@@ -21,7 +20,6 @@
 #include <linux/slab.h>
 #include <linux/uaccess.h>
 #include <linux/kthread.h>
-#include <linux/nvhost.h>
 
 #include <media/csi.h>
 #include <media/mc_common.h>
@@ -49,33 +47,21 @@ MODULE_DEVICE_TABLE(of, tegra194_nvcsi_of_match);
 
 static int t194_nvcsi_early_probe(struct platform_device *pdev)
 {
-	struct nvhost_device_data *pdata;
 	struct t194_nvcsi *nvcsi;
-
-	pdata = (void *)of_device_get_match_data(&pdev->dev);
-	if (unlikely(pdata == NULL)) {
-		dev_WARN(&pdev->dev, "no platform data\n");
-		return -ENODATA;
-	}
 
 	nvcsi = devm_kzalloc(&pdev->dev, sizeof(*nvcsi), GFP_KERNEL);
 	if (!nvcsi)
 		return -ENOMEM;
 
-	pdata->pdev = pdev;
 	nvcsi->pdev = pdev;
-	mutex_init(&pdata->lock);
-	platform_set_drvdata(pdev, pdata);
-
-	pdata->private_data = nvcsi;
+	platform_set_drvdata(pdev, nvcsi);
 
 	return 0;
 }
 
 static int t194_nvcsi_set_rate(struct tegra_camera_dev_info *cdev_info, unsigned long rate)
 {
-	struct nvhost_device_data *info = platform_get_drvdata(cdev_info->pdev);
-	struct t194_nvcsi *nvcsi = info->private_data;
+	struct t194_nvcsi *nvcsi = platform_get_drvdata(cdev_info->pdev);
 
 	return clk_set_rate(nvcsi->clk, rate);
 }
@@ -86,8 +72,7 @@ static struct tegra_camera_dev_ops t194_nvcsi_cdev_ops = {
 
 static int t194_nvcsi_late_probe(struct platform_device *pdev)
 {
-	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
-	struct t194_nvcsi *nvcsi = pdata->private_data;
+	struct t194_nvcsi *nvcsi = platform_get_drvdata(pdev);
 	struct tegra_camera_dev_info csi_info;
 	int err;
 
@@ -103,7 +88,6 @@ static int t194_nvcsi_late_probe(struct platform_device *pdev)
 	if (err)
 		return err;
 
-	nvcsi->pdev = pdev;
 	nvcsi->csi.fops = &csi5_fops;
 	err = tegra_csi_media_controller_init(&nvcsi->csi, pdev);
 
@@ -113,7 +97,6 @@ static int t194_nvcsi_late_probe(struct platform_device *pdev)
 static int t194_nvcsi_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
-	struct nvhost_device_data *pdata;
 	struct t194_nvcsi *nvcsi;
 	int err;
 
@@ -121,9 +104,7 @@ static int t194_nvcsi_probe(struct platform_device *pdev)
 	if (err)
 		return err;
 
-	pdata = platform_get_drvdata(pdev);
-
-	nvcsi = pdata->private_data;
+	nvcsi = platform_get_drvdata(pdev);
 
 	nvcsi->clk = devm_clk_get(dev, NULL);
 	if (IS_ERR(nvcsi->clk)) {
@@ -131,37 +112,12 @@ static int t194_nvcsi_probe(struct platform_device *pdev)
 		return PTR_ERR(nvcsi->clk);
 	}
 
-	err = nvhost_client_device_get_resources(pdev);
-	if (err)
-		return err;
-
-	err = nvhost_module_init(pdev);
-	if (err)
-		return err;
-
-	err = nvhost_client_device_init(pdev);
-	if (err) {
-		nvhost_module_deinit(pdev);
-		goto err_client_device_init;
-	}
-
-	err = t194_nvcsi_late_probe(pdev);
-	if (err)
-		goto err_mediacontroller_init;
-
-	return 0;
-
-err_mediacontroller_init:
-	nvhost_client_device_release(pdev);
-err_client_device_init:
-	pdata->private_data = NULL;
-	return err;
+	return t194_nvcsi_late_probe(pdev);
 }
 
 static int __exit t194_nvcsi_remove(struct platform_device *dev)
 {
-	struct nvhost_device_data *pdata = platform_get_drvdata(dev);
-	struct t194_nvcsi *nvcsi = pdata->private_data;
+	struct t194_nvcsi *nvcsi = platform_get_drvdata(dev);
 
 	tegra_camera_device_unregister(nvcsi);
 	tegra_csi_media_controller_remove(&nvcsi->csi);
@@ -177,9 +133,6 @@ static struct platform_driver t194_nvcsi_driver = {
 		.name = "t194-nvcsi",
 #ifdef CONFIG_OF
 		.of_match_table = tegra194_nvcsi_of_match,
-#endif
-#ifdef CONFIG_PM
-		.pm = &nvhost_module_pm_ops,
 #endif
 	},
 };
