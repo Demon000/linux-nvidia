@@ -22,7 +22,6 @@
 struct tegra_csi_port {
 	u32 csi_port;
 	u32 stream_id;
-	u32 virtual_channel_id;
 
 	/* One pair of sink/source pad has one format */
 	unsigned int lanes;

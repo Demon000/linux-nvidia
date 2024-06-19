@@ -246,15 +246,14 @@ static int csi5_start_streaming(struct tegra_csi_channel *chan, int port_idx)
 {
 	int err = 0, num_lanes;
 	struct tegra_csi_port *port = &chan->ports[port_idx];
-	u32 csi_pt, st_id, vc_id;
+	u32 csi_pt, st_id;
 
 	csi_pt = port->csi_port;
 	st_id = csi5_port_to_stream(port->csi_port);
-	vc_id = port->virtual_channel_id;
 	num_lanes = port->lanes;
 
-	pr_debug("%s: csi_pt=%u, st_id=%u, vc_id=%u\n",
-		__func__, csi_pt, st_id, vc_id);
+	pr_debug("%s: csi_pt=%u, st_id=%u\n",
+		__func__, csi_pt, st_id);
 
 	csi5_stream_set_config(chan, st_id, csi_pt, num_lanes);
 	csi5_stream_open(chan, st_id, csi_pt);
@@ -265,14 +264,13 @@ static int csi5_start_streaming(struct tegra_csi_channel *chan, int port_idx)
 static void csi5_stop_streaming(struct tegra_csi_channel *chan, int port_idx)
 {
 	struct tegra_csi_port *port = &chan->ports[port_idx];
-	u32 csi_pt, st_id, vc_id;
+	u32 csi_pt, st_id;
 
 	csi_pt = port->csi_port;
 	st_id = csi5_port_to_stream(port->csi_port);
-	vc_id = port->virtual_channel_id;
 
-	pr_debug("%s: csi_pt=%u, st_id=%u, vc_id=%u\n",
-		__func__, csi_pt, st_id, vc_id);
+	pr_debug("%s: csi_pt=%u, st_id=%u\n",
+		__func__, csi_pt, st_id);
 
 	csi5_stream_close(chan, st_id, csi_pt);
 }
