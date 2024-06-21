@@ -360,18 +360,6 @@ void tegra_channel_init_ring_buffer(struct tegra_channel *chan)
 }
 EXPORT_SYMBOL(tegra_channel_init_ring_buffer);
 
-void tegra_channel_ec_close(struct tegra_mc_vi *vi)
-{
-	struct tegra_channel *chan;
-
-	/* clear all channles sync point fifo context */
-	list_for_each_entry(chan, &vi->vi_chans, list) {
-		memset(&chan->syncpoint_fifo[0],
-			0, sizeof(chan->syncpoint_fifo));
-	}
-}
-EXPORT_SYMBOL(tegra_channel_ec_close);
-
 struct tegra_channel_buffer *dequeue_buffer(struct tegra_channel *chan)
 {
 	struct tegra_channel_buffer *buf = NULL;
@@ -2022,7 +2010,6 @@ static int tegra_channel_csi_init(struct tegra_channel *chan)
 	chan->gang_mode = CAMERA_NO_GANG_MODE;
 	chan->total_ports = 0;
 	memset(&chan->port[0], INVALID_CSI_PORT, TEGRA_CSI_BLOCKS);
-	memset(&chan->syncpoint_fifo[0], 0, sizeof(chan->syncpoint_fifo));
 	ret = tegra_vi_get_port_info(chan, vi->dev->of_node, chan->id);
 	if (ret) {
 		dev_err(vi->dev, "%s:Fail to parse port info\n",

@@ -78,9 +78,6 @@ struct tegra_camera_dev_info {
 	const struct tegra_camera_dev_ops *ops;
 };
 
-int tegra_camera_update_isobw(void);
-int tegra_camera_emc_clk_enable(void);
-int tegra_camera_emc_clk_disable(void);
 int tegra_camera_device_register(struct tegra_camera_dev_info *cdev_info,
 					void *priv);
 int tegra_camera_device_unregister(void *priv);

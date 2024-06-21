@@ -110,23 +110,14 @@ static int dbgfs_tegra_camera_init(void)
 /*
  * submits total aggregated iso bw request to isomgr.
  */
-int tegra_camera_update_isobw(void)
+static int tegra_camera_update_isobw(struct tegra_camera_info *info)
 {
-	struct tegra_camera_info *info;
 	unsigned long bw;
 #ifdef CONFIG_NV_TEGRA_MC
 	unsigned long bw_mbps;
 #endif
 	int ret = 0;
 
-	if (tegra_camera_misc.parent == NULL) {
-		pr_info("driver not enabled, cannot update bw\n");
-		return -ENODEV;
-	}
-
-	info = dev_get_drvdata(tegra_camera_misc.parent);
-	if (!info)
-		return -ENODEV;
 	mutex_lock(&info->update_bw_lock);
 
 	bw = info->active_iso_bw;
@@ -183,7 +174,6 @@ int tegra_camera_update_isobw(void)
 	mutex_unlock(&info->update_bw_lock);
 	return ret;
 }
-EXPORT_SYMBOL(tegra_camera_update_isobw);
 
 static long tegra_camera_ioctl(struct file *file,
 	unsigned int cmd, unsigned long arg)
@@ -210,7 +200,7 @@ static long tegra_camera_ioctl(struct file *file,
 		/* Use Khz to prevent overflow */
 		if (kcopy.is_iso) {
 			info->bypass_mode_isobw = kcopy.bw;
-			ret = tegra_camera_update_isobw();
+			ret = tegra_camera_update_isobw(info);
 		}
 		break;
 	}
@@ -658,7 +648,7 @@ int tegra_camera_update_clknbw(void *priv, bool stream_on)
 	mutex_unlock(&info->device_list_mutex);
 
 	/* set BW */
-	tegra_camera_update_isobw();
+	tegra_camera_update_isobw(info);
 
 	return ret;
 }

@@ -151,7 +151,6 @@ struct tegra_channel {
 	unsigned char port[TEGRA_CSI_BLOCKS];
 	unsigned int virtual_channel;
 	unsigned int syncpt[TEGRA_CSI_BLOCKS][MAX_SYNCPT_PER_CHANNEL];
-	unsigned int syncpoint_fifo[TEGRA_CSI_BLOCKS][MAX_SYNCPT_PER_CHANNEL];
 	unsigned int buffer_offset[TEGRA_CSI_BLOCKS];
 	unsigned int *buffer_state;
 	struct vb2_v4l2_buffer **buffers;
@@ -291,7 +290,6 @@ struct v4l2_subdev *tegra_channel_find_linked_csi_subdev(
 int tegra_capture_vi_media_controller_init(struct tegra_mc_vi *mc_vi,
 			struct platform_device *pdev);
 void tegra_vi_media_controller_cleanup(struct tegra_mc_vi *mc_vi);
-void tegra_channel_ec_close(struct tegra_mc_vi *mc_vi);
 
 u32 tegra_core_get_fourcc_by_idx(struct tegra_channel *chan,
 		unsigned int index);

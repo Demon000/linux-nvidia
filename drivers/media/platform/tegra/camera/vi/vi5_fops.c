@@ -944,26 +944,6 @@ static int vi5_channel_stop_streaming(struct vb2_queue *vq)
 	return 0;
 }
 
-static int tegra_vi5_enable(struct tegra_mc_vi *vi)
-{
-	int ret;
-
-	ret = tegra_camera_emc_clk_enable();
-	if (ret)
-		goto err_emc_enable;
-
-	return 0;
-
-err_emc_enable:
-	return ret;
-}
-
-static void tegra_vi5_disable(struct tegra_mc_vi *vi)
-{
-	tegra_channel_ec_close(vi);
-	tegra_camera_emc_clk_disable();
-}
-
 static int vi5_power_on(struct tegra_channel *chan)
 {
 	int ret = 0;
@@ -980,10 +960,6 @@ static int vi5_power_on(struct tegra_channel *chan)
 			return ret;
 		}
 	}
-
-	ret = tegra_vi5_enable(vi);
-	if (ret < 0)
-		return ret;
 
 	ret = tegra_channel_set_power(chan, 1);
 	if (ret < 0) {
@@ -1006,8 +982,6 @@ static void vi5_power_off(struct tegra_channel *chan)
 	ret = tegra_channel_set_power(chan, 0);
 	if (ret < 0)
 		dev_err(vi->dev, "Failed to power off subdevices\n");
-
-	tegra_vi5_disable(vi);
 
 	/* Suspend VI5 to reset ICC bandwidth request */
 	if (pm_runtime_enabled(dev)) {
