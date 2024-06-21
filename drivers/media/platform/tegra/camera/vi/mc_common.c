@@ -10,7 +10,6 @@
 #include <linux/of_device.h>
 #include <linux/of_platform.h>
 
-#include <media/tegra_v4l2_camera.h>
 #include <media/camera_common.h>
 #include <media/v4l2-event.h>
 #include <media/tegra_camera_platform.h>

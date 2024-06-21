@@ -23,25 +23,8 @@
 #include <soc/tegra/fuse.h>
 #define CAMDEV_NAME "tegra_camera_ctrl"
 
-/* Peak BPP for any of the YUV/Bayer formats */
-#define CAMERA_PEAK_BPP 2
-
-#define LANE_SPEED_1_GBPS 1000000000
-#define LANE_SPEED_1_5_GBPS 1500000000
-
 struct tegra_camera_info {
-	char devname[64];
-	atomic_t in_use;
 	struct device *dev;
-	struct clk *emc;
-	struct clk *iso_emc;
-#if defined(CONFIG_INTERCONNECT)
-	int icc_iso_id;
-	struct icc_path *icc_iso_path_handle;
-	int icc_noniso_id;
-	struct icc_path *icc_noniso_path_handle;
-	struct mutex icc_noniso_path_handle_lock;
-#endif
 	struct mutex update_bw_lock;
 	u64 vi_mode_isobw;
 	u64 bypass_mode_isobw;
@@ -88,46 +71,6 @@ static int tegra_camera_isomgr_request(
 	return 0;
 }
 
-int tegra_camera_emc_clk_enable(void)
-{
-	struct tegra_camera_info *info;
-	int ret = 0;
-
-	info = dev_get_drvdata(tegra_camera_misc.parent);
-	if (!info)
-		return -EINVAL;
-	ret = clk_prepare_enable(info->emc);
-	if (ret) {
-		dev_err(info->dev, "Cannot enable camera.emc\n");
-		return ret;
-	}
-
-	ret = clk_prepare_enable(info->iso_emc);
-	if (ret) {
-		dev_err(info->dev, "Cannot enable camera_iso.emc\n");
-		goto err_iso_emc;
-	}
-
-	return 0;
-err_iso_emc:
-	clk_disable_unprepare(info->emc);
-	return ret;
-}
-EXPORT_SYMBOL(tegra_camera_emc_clk_enable);
-
-int tegra_camera_emc_clk_disable(void)
-{
-	struct tegra_camera_info *info;
-
-	info = dev_get_drvdata(tegra_camera_misc.parent);
-	if (!info)
-		return -EINVAL;
-	clk_disable_unprepare(info->emc);
-	clk_disable_unprepare(info->iso_emc);
-	return 0;
-}
-EXPORT_SYMBOL(tegra_camera_emc_clk_disable);
-
 static int tegra_camera_open(struct inode *inode, struct file *file)
 {
 	struct tegra_camera_info *info;
@@ -137,15 +80,11 @@ static int tegra_camera_open(struct inode *inode, struct file *file)
 	info = dev_get_drvdata(mdev->parent);
 	file->private_data = info;
 
-	return tegra_camera_emc_clk_enable();
+	return 0;
 }
 
 static int tegra_camera_release(struct inode *inode, struct file *file)
 {
-	struct tegra_camera_info *info;
-
-	info = file->private_data;
-	tegra_camera_emc_clk_disable();
 	return 0;
 }
 
@@ -174,7 +113,6 @@ static int dbgfs_tegra_camera_init(void)
 int tegra_camera_update_isobw(void)
 {
 	struct tegra_camera_info *info;
-	unsigned long total_khz;
 	unsigned long bw;
 #ifdef CONFIG_NV_TEGRA_MC
 	unsigned long bw_mbps;
@@ -221,18 +159,6 @@ int tegra_camera_update_isobw(void)
 	}
 #endif
 
-	/* Use Khz to prevent overflow */
-	total_khz = emc_bw_to_freq(bw);
-	total_khz = min(ULONG_MAX / 1000, total_khz);
-
-	dev_dbg(info->dev, "%s:Set iso bw %lu kbyteps at %lu KHz\n",
-		__func__, bw, total_khz);
-#if !defined(CONFIG_TEGRA_BWMGR)
-	ret = clk_set_rate(info->iso_emc, total_khz * 1000);
-	if (ret)
-		dev_err(info->dev, "%s:Failed to set iso bw\n",
-			__func__);
-#endif
 	/*
 	 * Request to ISOMGR or ICC depending on chip version.
 	 */
@@ -271,7 +197,6 @@ static long tegra_camera_ioctl(struct file *file,
 	case _IOC_NR(TEGRA_CAMERA_IOCTL_SET_BW):
 	{
 		struct bw_info kcopy;
-		unsigned long mc_khz = 0;
 
 		memset(&kcopy, 0, sizeof(kcopy));
 
@@ -283,16 +208,9 @@ static long tegra_camera_ioctl(struct file *file,
 		}
 
 		/* Use Khz to prevent overflow */
-		mc_khz = emc_bw_to_freq(kcopy.bw);
-		mc_khz = min(ULONG_MAX / 1000, mc_khz);
-
 		if (kcopy.is_iso) {
 			info->bypass_mode_isobw = kcopy.bw;
 			ret = tegra_camera_update_isobw();
-		} else {
-			dev_dbg(info->dev, "%s:Set bw %llu at %lu KHz\n",
-				__func__, kcopy.bw, mc_khz);
-			ret = clk_set_rate(info->emc, mc_khz * 1000);
 		}
 		break;
 	}
@@ -381,7 +299,6 @@ static int tegra_camera_probe(struct platform_device *pdev)
 	if (!info)
 		return -ENOMEM;
 
-	strcpy(info->devname, tegra_camera_misc.name);
 	info->dev = tegra_camera_misc.this_device;
 
 	mutex_init(&info->update_bw_lock);
@@ -655,8 +572,6 @@ static int calculate_and_set_device_clock(struct tegra_camera_info *info,
 	u32 overhead = cdev->overhead + 100;
 	u32 max_depth = info->max_pixel_depth;
 	u32 bus_width = cdev->bus_width;
-	u32 lane_num = cdev->lane_num;
-	u64 lane_speed = cdev->lane_speed;
 	u32 ppc = (cdev->ppc) ? cdev->ppc : 1;
 	u32 ppc_divider = (ppc > 1) ? info->ppc_divider : 1;
 	u64 nr = 0;

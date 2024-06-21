@@ -16,7 +16,6 @@
 #include <linux/of_device.h>
 #include <linux/of_gpio.h>
 
-#include <media/tegra_v4l2_camera.h>
 #include <media/tegracam_core.h>
 #include <media/tegracam_utils.h>
 #include <media/imx318.h>
