@@ -25,9 +25,7 @@
 #include "vi5_fops.h"
 #include "vi5_formats.h"
 
-#define DEFAULT_FRAMERATE	30
 #define BPP_MEM			2
-#define VI_CSI_CLK_SCALE	110
 
 #define VI_CHANNEL_DEV "/dev/capture-vi-channel"
 #define VI_CHAN_PATH_MAX 40
