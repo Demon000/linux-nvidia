@@ -14,12 +14,7 @@
 #include "dla_t23x_fw_version.h"
 
 static struct nvhost_device_data t23x_nvdla0_info = {
-	.devfs_name_family	= "nvdla",
 	.class			= NV_DLA0_CLASS_ID,
-	.clocks			= {
-		{"nvdla0", UINT_MAX},
-		{"nvdla0_flcn", UINT_MAX}
-	},
 	.resource_policy	= RESOURCE_PER_CHANNEL_INSTANCE,
 	.finalize_poweron	= nvhost_nvdla_finalize_poweron,
 	.prepare_poweroff	= nvhost_nvdla_prepare_poweroff,
@@ -45,12 +40,7 @@ static struct nvhost_device_data t23x_nvdla0_info = {
 };
 
 static struct nvhost_device_data t23x_nvdla1_info = {
-	.devfs_name_family	= "nvdla",
 	.class			= NV_DLA1_CLASS_ID,
-	.clocks			= {
-		{"nvdla1", UINT_MAX},
-		{"nvdla1_flcn", UINT_MAX}
-	},
 	.resource_policy	= RESOURCE_PER_CHANNEL_INSTANCE,
 	.finalize_poweron	= nvhost_nvdla_finalize_poweron,
 	.prepare_poweroff	= nvhost_nvdla_prepare_poweroff,

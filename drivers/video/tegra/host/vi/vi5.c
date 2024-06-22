@@ -74,29 +74,6 @@ static int vi5_alloc_syncpt(struct platform_device *pdev,
 	return capture_alloc_syncpt(vi5->vi_thi, name, syncpt_id);
 }
 
-static int nvhost_vi5_aggregate_constraints(struct platform_device *dev,
-				int clk_index,
-				unsigned long floor_rate,
-				unsigned long pixelrate,
-				unsigned long bw_constraint)
-{
-	struct nvhost_device_data *pdata = nvhost_get_devdata(dev);
-
-	if (!pdata) {
-		dev_err(&dev->dev,
-			"No platform data, fall back to default policy\n");
-		return 0;
-	}
-
-	if (clk_index != 0)
-		return 0;
-	/*
-	 * SCF and V4l2 send request using NVHOST_CLK through tegra_camera_platform,
-	 * which is calculated in floor_rate.
-	 */
-	return floor_rate + (pixelrate / pdata->num_ppc);
-}
-
 static void vi5_release_syncpt(struct platform_device *pdev, uint32_t id)
 {
 	struct nvhost_device_data *info = platform_get_drvdata(pdev);
@@ -315,42 +292,21 @@ static int vi5_remove(struct platform_device *pdev)
 }
 
 static struct nvhost_device_data t19_vi5_info = {
-	.devfs_name		= "vi",
 	.moduleid		= 2, //NVHOST_MODULE_VI,
-	.clocks = {
-		{"vi", UINT_MAX},
-		{"emc", 0,
-		 NVHOST_MODULE_ID_EXTERNAL_MEMORY_CONTROLLER,
-		 TEGRA_SET_EMC_FLOOR, false, UINT_MAX}
-	},
-	.num_ppc		= 8,
-	.aggregate_constraints	= nvhost_vi5_aggregate_constraints,
 	.pre_virt_init		= vi5_priv_early_probe,
 	.post_virt_init		= vi5_priv_late_probe,
 	.bwmgr_client_id	= TEGRA_BWMGR_CLIENT_VI,
 };
 
 static struct nvhost_device_data t23x_vi0_info = {
-	.devfs_name		= "vi0",
 	.moduleid		= 2, //NVHOST_MODULE_VI,
-	.clocks = {
-		{"vi", UINT_MAX},
-	},
-	.num_ppc		= 8,
-	.aggregate_constraints	= nvhost_vi5_aggregate_constraints,
 	.pre_virt_init		= vi5_priv_early_probe,
 	.post_virt_init		= vi5_priv_late_probe,
 	.class			= VI_CLASS_ID,
 };
 
 static struct nvhost_device_data t23x_vi1_info = {
-	.devfs_name		= "vi1",
 	.moduleid		= 3, //NVHOST_MODULE_VI2,
-	.clocks = {
-		{"vi", UINT_MAX},
-	},
-	.num_ppc		= 8,
-	.aggregate_constraints	= nvhost_vi5_aggregate_constraints,
 	.pre_virt_init		= vi5_priv_early_probe,
 	.post_virt_init		= vi5_priv_late_probe,
 	.class			= VI_CLASS_ID,

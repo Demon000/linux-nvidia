@@ -145,22 +145,18 @@ static int capture_support_remove(struct platform_device *pdev)
 }
 
 struct nvhost_device_data t19_isp_thi_info = {
-	.devfs_name		= "isp-thi",
 	.moduleid		= 4, //NVHOST_MODULE_ISP,
 };
 
 struct nvhost_device_data t19_vi_thi_info = {
-	.devfs_name		= "vi-thi",
 	.moduleid		= 2, //NVHOST_MODULE_VI,
 };
 
 struct nvhost_device_data t23x_vi0_thi_info = {
-	.devfs_name		= "vi0-thi",
 	.moduleid		= 2, //NVHOST_MODULE_VI,
 };
 
 struct nvhost_device_data t23x_vi1_thi_info = {
-	.devfs_name		= "vi1-thi",
 	.moduleid		= 3, //NVHOST_MODULE_VI2,
 };
 

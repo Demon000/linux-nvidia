@@ -14,7 +14,6 @@ struct nvhost_ctrl_sync_fence_info;
 struct nvhost_fence;
 struct nvhost_job;
 
-#define NVHOST_MODULE_MAX_CLOCKS		8
 #define NVHOST_MODULE_MAX_IORESOURCE_MEM	5
 
 struct nvhost_notification {
@@ -87,8 +86,6 @@ struct nvhost_device_data {
 	bool		serialize;	/* Serialize submits in the channel */
 	bool		push_work_done;	/* Push_op done into push buffer */
 	bool		poweron_reset;	/* Reset the engine before powerup */
-	char		*devfs_name;	/* Name in devfs */
-	char		*devfs_name_family; /* Core of devfs name */
 
 	char		*firmware_name;	/* Name of firmware */
 	bool		firmware_not_in_subdir; /* Firmware is not located in
@@ -97,7 +94,6 @@ struct nvhost_device_data {
 	bool		engine_can_cg;	/* True if CG is enabled */
 	bool		can_powergate;	/* True if module can be power gated */
 	int		autosuspend_delay;/* Delay before power gated */
-	struct nvhost_clock clocks[NVHOST_MODULE_MAX_CLOCKS];/* Clock names */
 
 	/* Clock gating registers */
 	struct nvhost_gating_register *engine_cg_regs;
@@ -107,7 +103,6 @@ struct nvhost_device_data {
 	struct mutex	lock;		/* Power management lock */
 
 	int		num_channels;	/* Max num of channel supported */
-	int		num_ppc;	/* Number of pixels per clock cycle */
 	dev_t cdev_region;
 
 	/* device node for ctrl block */
@@ -133,13 +128,6 @@ struct nvhost_device_data {
 
 	/* Preparing for power off. Used for context save. */
 	int (*prepare_poweroff)(struct platform_device *dev);
-
-	/* paring for power off. Used for context save. */
-	int (*aggregate_constraints)(struct platform_device *dev,
-				     int clk_index,
-				     unsigned long floor_rate,
-				     unsigned long pixel_rate,
-				     unsigned long bw_rate);
 
 	/* Used to add platform specific masks on reloc address */
 	dma_addr_t (*get_reloc_phys_addr)(dma_addr_t phys_addr, u32 reloc_type);
@@ -232,13 +220,6 @@ int nvhost_intr_register_notifier(struct platform_device *pdev,
 
 /* public host1x sync-point management APIs */
 struct host1x *nvhost_get_host1x(struct platform_device *pdev);
-
-static inline int nvhost_module_set_rate(struct platform_device *dev, void *priv,
-			   unsigned long constraint, int index,
-			   unsigned long attr)
-{
-	return 0;
-}
 
 static inline int nvhost_module_add_client(struct platform_device *dev, void *priv)
 {

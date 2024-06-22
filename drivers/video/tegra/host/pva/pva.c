@@ -101,13 +101,7 @@ static u32 aux_dev_name_len = 29;
 struct nvhost_device_data t19_pva1_info = {
 	.version = PVA_HW_GEN1,
 	.num_channels		= 1,
-	.clocks			= {
-		{"axi", UINT_MAX,},
-		{"vps0", UINT_MAX,},
-		{"vps1", UINT_MAX,},
-	},
 	.ctrl_ops		= &tegra_pva_ctrl_ops,
-	.devfs_name_family	= "pva",
 	.class			= NV_PVA1_CLASS_ID,
 	.autosuspend_delay      = 500,
 	.finalize_poweron	= pva_finalize_poweron,
@@ -129,15 +123,7 @@ struct nvhost_device_data t19_pva1_info = {
 struct nvhost_device_data t19_pva0_info = {
 	.version = PVA_HW_GEN1,
 	.num_channels		= 1,
-	.clocks			= {
-		{"nafll_pva_vps", UINT_MAX,},
-		{"nafll_pva_core", UINT_MAX,},
-		{"axi", UINT_MAX,},
-		{"vps0", UINT_MAX,},
-		{"vps1", UINT_MAX,},
-	},
 	.ctrl_ops		= &tegra_pva_ctrl_ops,
-	.devfs_name_family	= "pva",
 	.class			= NV_PVA0_CLASS_ID,
 	.autosuspend_delay      = 500,
 	.finalize_poweron	= pva_finalize_poweron,
@@ -158,13 +144,7 @@ struct nvhost_device_data t19_pva0_info = {
 struct nvhost_device_data t23x_pva0_info = {
 	.version = PVA_HW_GEN2,
 	.num_channels		= 1,
-	.clocks			= {
-		{"axi", UINT_MAX,},
-		{"vps0", UINT_MAX,},
-		{"vps1", UINT_MAX,},
-	},
 	.ctrl_ops		= &tegra_pva_ctrl_ops,
-	.devfs_name_family	= "pva",
 	.class			= NV_PVA0_CLASS_ID,
 	.autosuspend_delay      = 500,
 	.finalize_poweron	= pva_finalize_poweron,

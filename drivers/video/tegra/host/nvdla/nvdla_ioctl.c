@@ -1244,7 +1244,7 @@ static int nvdla_open(struct inode *inode, struct file *file)
 					struct nvhost_device_data, ctrl_cdev);
 	struct platform_device *pdev = pdata->pdev;
 	struct nvdla_private *priv;
-	int err = 0, index;
+	int err = 0;
 
 	priv = kmalloc(sizeof(*priv), GFP_KERNEL);
 	if (unlikely(priv == NULL)) {
@@ -1261,22 +1261,6 @@ static int nvdla_open(struct inode *inode, struct file *file)
 	err = nvhost_module_add_client(pdev, priv);
 	if (err < 0)
 		goto err_add_client;
-
-	/* set rate for EMC to max
-         * on device release ACM sets to default rate
-         */
-	for (index = 0; index < NVHOST_MODULE_MAX_CLOCKS; index++) {
-		struct nvhost_clock *clock = &pdata->clocks[index];
-
-		if (clock->moduleid ==
-			NVHOST_MODULE_ID_EXTERNAL_MEMORY_CONTROLLER) {
-			err = nvhost_module_set_rate(pdev, priv, UINT_MAX,
-				index, clock->request_type);
-			if (err < 0)
-				goto err_set_emc_rate;
-			break;
-		}
-	}
 
 	/* Zero out explicitly */
 	priv->queue = NULL;
@@ -1295,7 +1279,6 @@ static int nvdla_open(struct inode *inode, struct file *file)
 
 err_alloc_buffer:
 	kfree(priv->buffers);
-err_set_emc_rate:
 	nvhost_module_remove_client(pdev, priv);
 err_add_client:
 	kfree(priv);

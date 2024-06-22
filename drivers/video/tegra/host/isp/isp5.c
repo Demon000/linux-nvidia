@@ -322,11 +322,7 @@ static int isp5_remove(struct platform_device *pdev)
 }
 
 struct nvhost_device_data t19_isp5_info = {
-	.devfs_name		= "isp",
 	.moduleid		= 4, //NVHOST_MODULE_ISP,
-	.clocks			= {
-		{"isp", UINT_MAX},
-	},
 	.ctrl_ops		= &tegra194_isp5_ctrl_ops,
 	.pre_virt_init		= isp5_priv_early_probe,
 	.post_virt_init		= isp5_priv_late_probe,
