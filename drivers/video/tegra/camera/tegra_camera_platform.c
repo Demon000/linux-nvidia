@@ -363,31 +363,9 @@ static void update_platform_data(struct tegra_camera_dev_info *cdev,
 	}
 }
 
-static int add_nvhost_client(struct tegra_camera_dev_info *cdev)
-{
-	int ret = 0;
-
-	if (cdev->hw_type == HWTYPE_NONE)
-		return 0;
-
-	ret = nvhost_module_add_client(cdev->pdev, &cdev->hw_type);
-	return ret;
-	return 0;
-}
-
-static int remove_nvhost_client(struct tegra_camera_dev_info *cdev)
-{
-	if (cdev->hw_type == HWTYPE_NONE)
-		return 0;
-
-	nvhost_module_remove_client(cdev->pdev, &cdev->hw_type);
-	return 0;
-}
-
 int tegra_camera_device_register(struct tegra_camera_dev_info *cdev_info,
 					void *priv)
 {
-	int err = 0;
 	struct tegra_camera_dev_info *cdev;
 	struct tegra_camera_info *info;
 
@@ -419,17 +397,10 @@ int tegra_camera_device_register(struct tegra_camera_dev_info *cdev_info,
 
 	mutex_lock(&info->device_list_mutex);
 	list_add(&cdev->device_node, &info->device_list);
-	err = add_nvhost_client(cdev);
-	if (err) {
-		mutex_unlock(&info->device_list_mutex);
-		dev_err(info->dev, "%s could not add %d to nvhost\n",
-				__func__, cdev->hw_type);
-		return err;
-	}
 	update_platform_data(cdev, info, true);
 	mutex_unlock(&info->device_list_mutex);
 
-	return err;
+	return 0;
 }
 EXPORT_SYMBOL(tegra_camera_device_register);
 
@@ -462,7 +433,6 @@ int tegra_camera_device_unregister(void *priv)
 	}
 
 	if (found) {
-		remove_nvhost_client(cdev);
 		update_platform_data(cdev, info, false);
 		kfree(cdev);
 	}
@@ -526,7 +496,6 @@ int tegra_camera_get_device_list_stats(u32 *n_sensors, u32 *n_hwtypes)
 {
 	struct tegra_camera_dev_info *cdev;
 	struct tegra_camera_info *info;
-	int ret = 0;
 
 	if (!n_sensors || !n_hwtypes)
 		return -EINVAL;
@@ -550,7 +519,7 @@ int tegra_camera_get_device_list_stats(u32 *n_sensors, u32 *n_hwtypes)
 	}
 	mutex_unlock(&info->device_list_mutex);
 
-	return ret;
+	return 0;
 }
 EXPORT_SYMBOL(tegra_camera_get_device_list_stats);
 

@@ -225,21 +225,6 @@ int nvhost_client_device_release(struct platform_device *pdev)
 }
 EXPORT_SYMBOL(nvhost_client_device_release);
 
-u32 nvhost_get_syncpt_host_managed(struct platform_device *pdev,
-				   u32 param, const char *syncpt_name)
-{
-	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
-	struct host1x_syncpt *sp;
-
-	sp = host1x_syncpt_alloc(pdata->host1x, 0, syncpt_name ? syncpt_name :
-				 dev_name(&pdev->dev));
-	if (!sp)
-		return 0;
-
-	return host1x_syncpt_id(sp);
-}
-EXPORT_SYMBOL(nvhost_get_syncpt_host_managed);
-
 u32 nvhost_get_syncpt_client_managed(struct platform_device *pdev,
 				     const char *syncpt_name)
 {
@@ -256,13 +241,6 @@ u32 nvhost_get_syncpt_client_managed(struct platform_device *pdev,
 }
 EXPORT_SYMBOL_GPL(nvhost_get_syncpt_client_managed);
 
-u32 nvhost_get_syncpt_gpu_managed(struct platform_device *pdev,
-				     const char *syncpt_name)
-{
-	return nvhost_get_syncpt_client_managed(pdev, syncpt_name);
-}
-EXPORT_SYMBOL_GPL(nvhost_get_syncpt_gpu_managed);
-
 void nvhost_syncpt_put_ref_ext(struct platform_device *pdev, u32 id)
 {
 	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
@@ -275,73 +253,6 @@ void nvhost_syncpt_put_ref_ext(struct platform_device *pdev, u32 id)
 	host1x_syncpt_put(sp);
 }
 EXPORT_SYMBOL(nvhost_syncpt_put_ref_ext);
-
-bool nvhost_syncpt_is_valid_pt_ext(struct platform_device *pdev, u32 id)
-{
-	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
-	struct host1x_syncpt *sp;
-
-	if (!pdata || !pdata->host1x)
-		return -ENODEV;
-
-	sp = host1x_syncpt_get_by_id_noref(pdata->host1x, id);
-
-	return sp ? true : false;
-}
-EXPORT_SYMBOL(nvhost_syncpt_is_valid_pt_ext);
-
-int nvhost_syncpt_is_expired_ext(struct platform_device *pdev, u32 id,
-				 u32 thresh)
-{
-	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
-	struct host1x_syncpt *sp;
-
-	sp = host1x_syncpt_get_by_id_noref(pdata->host1x, id);
-	if (WARN_ON(!sp))
-		return true;
-
-	if (host1x_syncpt_wait(sp, thresh, 0, NULL))
-		return false;
-
-	return true;
-}
-EXPORT_SYMBOL(nvhost_syncpt_is_expired_ext);
-
-void nvhost_syncpt_set_minval(struct platform_device *pdev, u32 id, u32 val)
-{
-	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
-	struct host1x_syncpt *sp;
-	u32 cur;
-
-	sp = host1x_syncpt_get_by_id_noref(pdata->host1x, id);
-	if (WARN_ON(!sp))
-		return;
-
-	cur = host1x_syncpt_read(sp);
-
-	while (cur++ != val)
-		host1x_syncpt_incr(sp);
-}
-EXPORT_SYMBOL(nvhost_syncpt_set_minval);
-
-void nvhost_syncpt_set_min_update(struct platform_device *pdev, u32 id, u32 val)
-{
-	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
-	struct host1x_syncpt *sp;
-	u32 cur;
-
-	sp = host1x_syncpt_get_by_id_noref(pdata->host1x, id);
-	if (WARN_ON(!sp))
-		return;
-
-	cur = host1x_syncpt_read(sp);
-
-	while (cur++ != val)
-		host1x_syncpt_incr(sp);
-
-	host1x_syncpt_read(sp);
-}
-EXPORT_SYMBOL(nvhost_syncpt_set_min_update);
 
 int nvhost_syncpt_read_ext_check(struct platform_device *pdev, u32 id, u32 *val)
 {
@@ -356,32 +267,6 @@ int nvhost_syncpt_read_ext_check(struct platform_device *pdev, u32 id, u32 *val)
 	return 0;
 }
 EXPORT_SYMBOL(nvhost_syncpt_read_ext_check);
-
-u32 nvhost_syncpt_read_maxval(struct platform_device *pdev, u32 id)
-{
-	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
-	struct host1x_syncpt *sp;
-
-	sp = host1x_syncpt_get_by_id_noref(pdata->host1x, id);
-	if (WARN_ON(!sp))
-		return 0;
-
-	return host1x_syncpt_read_max(sp);
-}
-EXPORT_SYMBOL(nvhost_syncpt_read_maxval);
-
-u32 nvhost_syncpt_incr_max_ext(struct platform_device *pdev, u32 id, u32 incrs)
-{
-	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
-	struct host1x_syncpt *sp;
-
-	sp = host1x_syncpt_get_by_id_noref(pdata->host1x, id);
-	if (WARN_ON(!sp))
-		return 0;
-
-	return host1x_syncpt_incr_max(sp, incrs);
-}
-EXPORT_SYMBOL(nvhost_syncpt_incr_max_ext);
 
 static int nvhost_syncpt_get_aperture(struct device_node *np, u64 *base,
 				      size_t *size)
@@ -497,21 +382,6 @@ int nvhost_syncpt_unit_interface_init(struct platform_device *pdev)
 }
 EXPORT_SYMBOL(nvhost_syncpt_unit_interface_init);
 
-void nvhost_syncpt_unit_interface_deinit(struct platform_device *pdev)
-{
-	struct nvhost_syncpt_interface *syncpt_if;
-	struct nvhost_device_data *pdata;
-
-	if (iommu_get_domain_for_dev(&pdev->dev)) {
-		pdata = platform_get_drvdata(pdev);
-		syncpt_if = pdata->syncpt_unit_interface;
-
-		dma_unmap_resource(&pdev->dev, syncpt_if->base, syncpt_if->size,
-				   DMA_BIDIRECTIONAL, DMA_ATTR_SKIP_CPU_SYNC);
-	}
-}
-EXPORT_SYMBOL(nvhost_syncpt_unit_interface_deinit);
-
 dma_addr_t nvhost_syncpt_address(struct platform_device *pdev, u32 id)
 {
 	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
@@ -521,249 +391,11 @@ dma_addr_t nvhost_syncpt_address(struct platform_device *pdev, u32 id)
 }
 EXPORT_SYMBOL(nvhost_syncpt_address);
 
-static irqreturn_t flcn_isr(int irq, void *dev_id)
-{
-	struct platform_device *pdev = (struct platform_device *)(dev_id);
-	struct nvhost_device_data *pdata = nvhost_get_devdata(pdev);
-
-	if (pdata->flcn_isr)
-		pdata->flcn_isr(pdev);
-
-	return IRQ_HANDLED;
-}
-
-int flcn_intr_init(struct platform_device *pdev)
-{
-	struct nvhost_device_data *pdata = nvhost_get_devdata(pdev);
-	int ret = 0;
-
-	pdata->irq = platform_get_irq(pdev, 0);
-	if (pdata->irq < 0) {
-		dev_err(&pdev->dev, "failed to get IRQ\n");
-		return -ENXIO;
-	}
-
-	ret = devm_request_irq(&pdev->dev, pdata->irq, flcn_isr, 0,
-			       dev_name(&pdev->dev), pdev);
-	if (ret) {
-		dev_err(&pdev->dev, "failed to request irq. err %d\n", ret);
-		return ret;
-	}
-
-	/* keep irq disabled */
-	disable_irq(pdata->irq);
-
-	return 0;
-}
-EXPORT_SYMBOL(flcn_intr_init);
-
-int flcn_reload_fw(struct platform_device *pdev)
-{
-	/* TODO: Used by debugfs */
-	return -EOPNOTSUPP;
-}
-EXPORT_SYMBOL(flcn_reload_fw);
-
-static int nvhost_flcn_init(struct platform_device *pdev,
-			    struct nvhost_device_data *pdata)
-{
-	struct falcon *falcon;
-
-	falcon = devm_kzalloc(&pdev->dev, sizeof(*falcon), GFP_KERNEL);
-	if (!falcon)
-		return -ENOMEM;
-
-	falcon->dev = &pdev->dev;
-	falcon->regs = pdata->aperture[0];
-
-	falcon_init(falcon);
-
-	pdata->falcon_data = falcon;
-
-	return 0;
-}
-
-int nvhost_flcn_prepare_poweroff(struct platform_device *pdev)
-{
-	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
-
-	if (pdata->flcn_isr)
-		disable_irq(pdata->irq);
-
-	return 0;
-}
-EXPORT_SYMBOL(nvhost_flcn_prepare_poweroff);
-
-static int nvhost_flcn_load_firmware(struct platform_device *pdev,
-				     struct falcon *falcon,
-				     char *firmware_name)
-{
-	dma_addr_t iova;
-	size_t size;
-	void *virt;
-	int err;
-
-	if (falcon->firmware.virt)
-		return 0;
-
-	err = falcon_read_firmware(falcon, firmware_name);
-	if (err < 0)
-		return err;
-
-	size = falcon->firmware.size;
-	virt = dma_alloc_coherent(&pdev->dev, size, &iova, GFP_KERNEL);
-	if (!virt)
-		return -ENOMEM;
-
-	falcon->firmware.virt = virt;
-	falcon->firmware.iova = iova;
-
-	err = falcon_load_firmware(falcon);
-	if (err < 0)
-		goto cleanup;
-
-	return 0;
-
-cleanup:
-	dma_free_coherent(&pdev->dev, size, virt, iova);
-
-	return err;
-}
-
-int nvhost_flcn_finalize_poweron(struct platform_device *pdev)
-{
-	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
-#ifdef CONFIG_IOMMU_API
-	struct iommu_fwspec *spec = dev_iommu_fwspec_get(&pdev->dev);
-#endif
-	struct falcon *falcon;
-	int err;
-	u32 value;
-
-	if (!pdata->falcon_data) {
-		err = nvhost_flcn_init(pdev, pdata);
-		if (err < 0)
-			return -ENOMEM;
-	}
-
-	falcon = pdata->falcon_data;
-
-	err = nvhost_flcn_load_firmware(pdev, falcon, pdata->firmware_name);
-	if (err < 0)
-		return err;
-
-#ifdef CONFIG_IOMMU_API
-	if (spec) {
-		host1x_writel(pdev, pdata->transcfg_addr, pdata->transcfg_val);
-
-		if (spec->num_ids > 0) {
-			value = spec->ids[0] & 0xffff;
-			host1x_writel(pdev, THI_STREAMID0, value);
-			host1x_writel(pdev, THI_STREAMID1, value);
-		}
-	}
-#endif
-
-	err = falcon_boot(falcon);
-	if (err < 0)
-		return err;
-
-	err = falcon_wait_idle(falcon);
-	if (err < 0) {
-		dev_err(&pdev->dev, "falcon boot timed out\n");
-		return err;
-	}
-
-	if (pdata->flcn_isr)
-		enable_irq(pdata->irq);
-
-	return 0;
-}
-EXPORT_SYMBOL(nvhost_flcn_finalize_poweron);
-
-struct nvhost_host1x_cb {
-	struct dma_fence_cb cb;
-	struct work_struct work;
-	void (*notifier)(void *data);
-	void *notifier_data;
-};
-
-static void nvhost_host1x_cb_func(struct dma_fence *f, struct dma_fence_cb *cb)
-{
-	struct nvhost_host1x_cb *host1x_cb;
-
-	host1x_cb = container_of(cb, struct nvhost_host1x_cb, cb);
-	schedule_work(&host1x_cb->work);
-	dma_fence_put(f);
-}
-
-static void nvhost_intr_do_work(struct work_struct *work)
-{
-	struct nvhost_host1x_cb *host1x_cb;
-
-	host1x_cb = container_of(work, struct nvhost_host1x_cb, work);
-	host1x_cb->notifier(host1x_cb->notifier_data);
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 5, 0))
-	kfree_rcu_mightsleep(host1x_cb);
-#else
-	kfree_rcu(host1x_cb);
-#endif
-}
-
-int nvhost_intr_register_notifier(struct platform_device *pdev,
-				  u32 id, u32 thresh,
-				  void (*callback)(void *data),
-				  void *private_data)
-{
-	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
-	struct dma_fence *fence;
-	struct nvhost_host1x_cb *cb;
-	struct host1x_syncpt *sp;
-	int err;
-
-	sp = host1x_syncpt_get_by_id_noref(pdata->host1x, id);
-	if (!sp)
-		return -EINVAL;
-
-	fence = host1x_fence_create(sp, thresh, true);
-	if (IS_ERR(fence)) {
-		pr_err("error %d during construction of fence!",
-			(int)PTR_ERR(fence));
-		return PTR_ERR(fence);
-	}
-
-	cb = kzalloc(sizeof(*cb), GFP_KERNEL);
-	if (!cb) {
-		dma_fence_put(fence);
-		return -ENOMEM;
-	}
-
-	INIT_WORK(&cb->work, nvhost_intr_do_work);
-	cb->notifier = callback;
-	cb->notifier_data = private_data;
-
-	err = dma_fence_add_callback(fence, &cb->cb, nvhost_host1x_cb_func);
-	if (err < 0) {
-		dma_fence_put(fence);
-		kfree(cb);
-	}
-
-	return err;
-}
-EXPORT_SYMBOL(nvhost_intr_register_notifier);
-
 void nvhost_module_deinit(struct platform_device *pdev)
 {
 	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
-	struct falcon *falcon = pdata->falcon_data;
 
 	pm_runtime_disable(&pdev->dev);
-
-	if (falcon) {
-		dma_free_coherent(&pdev->dev, falcon->firmware.size,
-			  falcon->firmware.virt, falcon->firmware.iova);
-		falcon_exit(falcon);
-	}
 
 	debugfs_remove_recursive(pdata->debugfs);
 }
@@ -831,53 +463,6 @@ int nvhost_module_init(struct platform_device *pdev)
 }
 EXPORT_SYMBOL(nvhost_module_init);
 
-static void nvhost_module_load_regs(struct platform_device *pdev, bool prod)
-{
-	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
-	struct nvhost_gating_register *regs = pdata->engine_cg_regs;
-
-	if (!regs)
-		return;
-
-	while (regs->addr) {
-		if (prod)
-			host1x_writel(pdev, regs->addr, regs->prod);
-		else
-			host1x_writel(pdev, regs->addr, regs->disable);
-		regs++;
-	}
-}
-
-void nvhost_module_reset(struct platform_device *pdev, bool reboot)
-{
-	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
-	int err;
-
-	if (reboot)
-		if (pdata->prepare_poweroff)
-			pdata->prepare_poweroff(pdev);
-
-	mutex_lock(&pdata->lock);
-	err = reset_control_acquire(pdata->reset_control);
-	if (err < 0) {
-		dev_err(&pdev->dev, "failed to acquire reset: %d\n", err);
-	} else {
-		reset_control_reset(pdata->reset_control);
-		reset_control_release(pdata->reset_control);
-	}
-	mutex_unlock(&pdata->lock);
-
-	if (reboot) {
-		/* Load clockgating registers */
-		nvhost_module_load_regs(pdev, pdata->engine_can_cg);
-
-		/* ..and execute engine specific operations (i.e. boot) */
-		if (pdata->finalize_poweron)
-			pdata->finalize_poweron(pdev);
-	}
-}
-EXPORT_SYMBOL(nvhost_module_reset);
-
 int nvhost_module_busy(struct platform_device *dev)
 {
 	int err;
@@ -924,29 +509,12 @@ static int nvhost_module_runtime_resume(struct device *dev)
 		return err;
 	}
 
-	if (pdata->poweron_reset)
-		nvhost_module_reset(pdev, false);
-
-	/* Load clockgating registers */
-	nvhost_module_load_regs(pdev, pdata->engine_can_cg);
-
-	if (pdata->finalize_poweron)
-		err = pdata->finalize_poweron(pdev);
-
 	return err;
 }
 
 static int nvhost_module_runtime_suspend(struct device *dev)
 {
-	struct platform_device *pdev = to_platform_device(dev);
 	struct nvhost_device_data *pdata = dev_get_drvdata(dev);
-	int err;
-
-	if (pdata->prepare_poweroff) {
-		err = pdata->prepare_poweroff(pdev);
-		if (err)
-			return err;
-	}
 
 	clk_bulk_disable_unprepare(pdata->num_clks, pdata->clks);
 

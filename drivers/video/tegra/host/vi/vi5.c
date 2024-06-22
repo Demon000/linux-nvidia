@@ -292,23 +292,13 @@ static int vi5_remove(struct platform_device *pdev)
 }
 
 static struct nvhost_device_data t19_vi5_info = {
-	.moduleid		= 2, //NVHOST_MODULE_VI,
-	.pre_virt_init		= vi5_priv_early_probe,
-	.post_virt_init		= vi5_priv_late_probe,
-	.bwmgr_client_id	= TEGRA_BWMGR_CLIENT_VI,
 };
 
 static struct nvhost_device_data t23x_vi0_info = {
-	.moduleid		= 2, //NVHOST_MODULE_VI,
-	.pre_virt_init		= vi5_priv_early_probe,
-	.post_virt_init		= vi5_priv_late_probe,
 	.class			= VI_CLASS_ID,
 };
 
 static struct nvhost_device_data t23x_vi1_info = {
-	.moduleid		= 3, //NVHOST_MODULE_VI2,
-	.pre_virt_init		= vi5_priv_early_probe,
-	.post_virt_init		= vi5_priv_late_probe,
 	.class			= VI_CLASS_ID,
 };
 

@@ -211,13 +211,6 @@ static int isp_channel_power_on(
 	int ret = 0;
 
 	dev_dbg(chan->isp_dev, "isp_channel_power_on\n");
-	ret = nvhost_module_add_client(chan->ndev, chan->priv);
-	if (ret < 0) {
-		dev_err(chan->isp_dev,
-			"%s: failed to add isp client\n", __func__);
-		return ret;
-	}
-
 	ret = nvhost_module_busy(chan->ndev);
 	if (ret < 0) {
 		dev_err(chan->isp_dev,
@@ -238,7 +231,6 @@ static void isp_channel_power_off(
 {
 	dev_dbg(chan->isp_dev, "isp_channel_power_off\n");
 	nvhost_module_idle(chan->ndev);
-	nvhost_module_remove_client(chan->ndev, chan->priv);
 }
 
 static struct isp_channel_drv *chdrv_;

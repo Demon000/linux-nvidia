@@ -39,7 +39,6 @@
 #include <linux/dma-iommu.h>
 #include <linux/nvhost.h>
 #include <linux/nvhost_interrupt_syncpt.h>
-#include <linux/nvhost_t194.h>
 #endif
 
 #define BAR0_SIZE SZ_4M

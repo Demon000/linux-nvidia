@@ -2,10 +2,7 @@
 # Copyright (c) 2022-2024, NVIDIA CORPORATION.  All rights reserved.
 
 obj-m += nvmap/
-obj-m += host/nvdla/
-obj-m += host/pva/
 obj-m += tsec/
-obj-m += dc/bridge/
 obj-m += camera/
 obj-m += host/capture/
 ifdef CONFIG_MEDIA_SUPPORT

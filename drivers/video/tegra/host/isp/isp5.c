@@ -322,12 +322,8 @@ static int isp5_remove(struct platform_device *pdev)
 }
 
 struct nvhost_device_data t19_isp5_info = {
-	.moduleid		= 4, //NVHOST_MODULE_ISP,
 	.ctrl_ops		= &tegra194_isp5_ctrl_ops,
-	.pre_virt_init		= isp5_priv_early_probe,
-	.post_virt_init		= isp5_priv_late_probe,
 	.autosuspend_delay      = 500,
-	.can_powergate = true,
 	.class			= ISP_CLASS_ID,
 };
 

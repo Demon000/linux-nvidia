@@ -98,16 +98,7 @@ EXPORT_SYMBOL_GPL(capture_get_syncpt_gos_backing);
 static int capture_support_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
-	struct nvhost_device_data *info;
 	int err = 0;
-
-	info = (void *)of_device_get_match_data(dev);
-	if (WARN_ON(info == NULL))
-		return -ENODATA;
-
-	info->pdev = pdev;
-	mutex_init(&info->lock);
-	platform_set_drvdata(pdev, info);
 
 	(void) dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(39));
 
@@ -144,40 +135,20 @@ static int capture_support_remove(struct platform_device *pdev)
 	return 0;
 }
 
-struct nvhost_device_data t19_isp_thi_info = {
-	.moduleid		= 4, //NVHOST_MODULE_ISP,
-};
-
-struct nvhost_device_data t19_vi_thi_info = {
-	.moduleid		= 2, //NVHOST_MODULE_VI,
-};
-
-struct nvhost_device_data t23x_vi0_thi_info = {
-	.moduleid		= 2, //NVHOST_MODULE_VI,
-};
-
-struct nvhost_device_data t23x_vi1_thi_info = {
-	.moduleid		= 3, //NVHOST_MODULE_VI2,
-};
-
 static const struct of_device_id capture_support_match[] = {
 	{
 		.compatible = "nvidia,tegra194-isp-thi",
-		.data = &t19_isp_thi_info,
 	},
 	{
 		.compatible = "nvidia,tegra194-vi-thi",
-		.data = &t19_vi_thi_info,
 	},
 	{
 		.name = "vi0-thi",
 		.compatible = "nvidia,tegra234-vi-thi",
-		.data = &t23x_vi0_thi_info,
 	},
 	{
 		.name = "vi1-thi",
 		.compatible = "nvidia,tegra234-vi-thi",
-		.data = &t23x_vi1_thi_info,
 	},
 	{ },
 };
