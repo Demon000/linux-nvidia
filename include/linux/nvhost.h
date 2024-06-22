@@ -64,9 +64,6 @@ enum nvhost_module_identifier {
 };
 
 struct nvhost_device_data {
-	int		version;	/* ip version number of device */
-	void __iomem	*aperture[NVHOST_MODULE_MAX_IORESOURCE_MEM];
-
 	/* interrupt ISR routine for falcon based engines */
 	int irq;
 
@@ -111,11 +108,7 @@ void nvhost_module_idle_mult(struct platform_device *pdev, int refs);
 int nvhost_module_busy(struct platform_device *dev);
 extern const struct dev_pm_ops nvhost_module_pm_ops;
 
-void host1x_writel(struct platform_device *dev, u32 r, u32 v);
-u32 host1x_readl(struct platform_device *dev, u32 r);
-
 /* common device management APIs */
-int nvhost_client_device_get_resources(struct platform_device *dev);
 int nvhost_client_device_release(struct platform_device *dev);
 int nvhost_client_device_init(struct platform_device *dev);
 

@@ -61,9 +61,6 @@ struct host_vi5 {
 	bool skip_v4l2_init;
 };
 
-static int vi5_init_debugfs(struct host_vi5 *vi5);
-static void vi5_remove_debugfs(struct host_vi5 *vi5);
-
 static int vi5_alloc_syncpt(struct platform_device *pdev,
 			const char *name,
 			uint32_t *syncpt_id)
@@ -213,8 +210,6 @@ static int vi5_priv_late_probe(struct platform_device *pdev)
 	if (err)
 		goto device_release;
 
-	vi5_init_debugfs(vi5);
-
 	return 0;
 
 device_release:
@@ -251,10 +246,6 @@ static int vi5_probe(struct platform_device *pdev)
 		return PTR_ERR(vi5->icc_write);
 	}
 
-	err = nvhost_client_device_get_resources(pdev);
-	if (err)
-		goto put_vi;
-
 	err = nvhost_module_init(pdev);
 	if (err)
 		goto put_vi;
@@ -286,8 +277,8 @@ static int vi5_remove(struct platform_device *pdev)
 
 	tegra_camera_device_unregister(vi5);
 
-	vi5_remove_debugfs(vi5);
 	platform_device_put(vi5->vi_thi);
+
 	return 0;
 }
 
@@ -388,30 +379,4 @@ static struct platform_driver vi5_driver = {
 };
 
 module_platform_driver(vi5_driver);
-
-/* === Debugfs ========================================================== */
-
-static int vi5_init_debugfs(struct host_vi5 *vi5)
-{
-	static const struct debugfs_reg32 vi5_ch_regs[] = {
-		{ .name = "protocol_version", 0x00 },
-		{ .name = "perforce_changelist", 0x4 },
-		{ .name = "build_timestamp", 0x8 },
-		{ .name = "channel_count", 0x80 },
-	};
-	struct nvhost_device_data *pdata = platform_get_drvdata(vi5->pdev);
-	struct dentry *dir = pdata->debugfs;
-	struct vi5_debug *debug = &vi5->debug;
-
-	debug->ch0.base = pdata->aperture[0];
-	debug->ch0.regs = vi5_ch_regs;
-	debug->ch0.nregs = ARRAY_SIZE(vi5_ch_regs);
-	debugfs_create_regset32("ch0", S_IRUGO, dir, &debug->ch0);
-
-	return 0;
-}
-
-static void vi5_remove_debugfs(struct host_vi5 *vi5)
-{
-}
 MODULE_LICENSE("GPL");

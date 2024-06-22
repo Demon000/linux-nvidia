@@ -40,24 +40,6 @@ struct nvhost_syncpt_interface {
 	uint32_t page_size;
 };
 
-u32 host1x_readl(struct platform_device *pdev, u32 r)
-{
-	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
-	void __iomem *addr = pdata->aperture[0] + r;
-
-	return readl(addr);
-}
-EXPORT_SYMBOL(host1x_readl);
-
-void host1x_writel(struct platform_device *pdev, u32 r, u32 v)
-{
-	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
-	void __iomem *addr = pdata->aperture[0] + r;
-
-	writel(v, addr);
-}
-EXPORT_SYMBOL(host1x_writel);
-
 static const struct of_device_id host1x_match[] = {
 	{ .compatible = "nvidia,tegra194-host1x", },
 	{ .compatible = "nvidia,tegra234-host1x", },
@@ -144,46 +126,6 @@ static struct device *nvhost_client_device_create(struct platform_device *pdev,
 
 	return dev;
 }
-
-int nvhost_client_device_get_resources(struct platform_device *pdev)
-{
-	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
-	int err;
-	u32 i;
-
-	pdata->host1x = nvhost_get_host1x(pdev);
-	if (!pdata->host1x) {
-		dev_warn(&pdev->dev, "No platform data for host1x!\n");
-		return -ENODEV;
-	}
-
-	for (i = 0; i < pdev->num_resources; i++) {
-		void __iomem *regs = NULL;
-		struct resource *r;
-
-		r = platform_get_resource(pdev, IORESOURCE_MEM, i);
-		/* We've run out of mem resources */
-		if (!r)
-			break;
-
-		regs = devm_ioremap_resource(&pdev->dev, r);
-		if (IS_ERR(regs)) {
-			err = PTR_ERR(regs);
-			goto fail;
-		}
-
-		pdata->aperture[i] = regs;
-	}
-
-	return 0;
-
-fail:
-	dev_err(&pdev->dev, "failed to get register memory\n");
-
-	return err;
-
-}
-EXPORT_SYMBOL(nvhost_client_device_get_resources);
 
 int nvhost_client_device_init(struct platform_device *pdev)
 {
