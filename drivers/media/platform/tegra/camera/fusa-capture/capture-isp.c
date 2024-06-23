@@ -76,11 +76,6 @@ struct isp_capture {
 	bool is_progress_status_notifier_set;
 		/**< Whether progress_status_notifer has been initialized */
 
-#ifdef HAVE_ISP_GOS_TABLES
-	uint32_t num_gos_tables; /**< No. of cv devices in gos_tables */
-	const dma_addr_t *gos_tables; /**< IOVA addresses of all GoS devices */
-#endif
-
 	struct syncpoint_info progress_sp; /**< Syncpoint for frame progress */
 	struct syncpoint_info stats_progress_sp;
 		/**< Syncpoint for stats progress */
@@ -136,7 +131,6 @@ static int isp_capture_setup_syncpt(
 
 	if (!enable)
 		return 0;
-
 
 	err = chan->ops->alloc_syncpt(pdev, name, &sp->id);
 	if (err)
@@ -207,11 +201,6 @@ static int isp_capture_setup_syncpts(
 {
 	struct isp_capture *capture = chan->capture_data;
 	int err = 0;
-
-#ifdef HAVE_ISP_GOS_TABLES
-	capture->num_gos_tables = chan->ops->get_gos_table(chan->ndev,
-							&capture->gos_tables);
-#endif
 
 	err = isp_capture_setup_syncpt(chan, "progress", true,
 			&capture->progress_sp);
@@ -979,9 +968,6 @@ int isp_capture_setup(
 	struct capture_channel_isp_config *config =
 		&control_msg.channel_isp_setup_req.channel_config;
 	int err = 0;
-#ifdef HAVE_ISP_GOS_TABLES
-	int i;
-#endif
 
 	nv_camera_log(chan->ndev,
 		__arch_counter_get_cntvct(),
@@ -1156,17 +1142,6 @@ int isp_capture_setup(
 
 	config->progress_sp = capture->progress_sp;
 	config->stats_progress_sp = capture->stats_progress_sp;
-
-#ifdef HAVE_ISP_GOS_TABLES
-	dev_dbg(chan->isp_dev, "%u GoS tables configured.\n",
-		capture->num_gos_tables);
-	for (i = 0; i < capture->num_gos_tables; i++) {
-		config->isp_gos_tables[i] = (iova_t)capture->gos_tables[i];
-		dev_dbg(chan->isp_dev, "gos[%d] = 0x%08llx\n",
-			i, (u64)capture->gos_tables[i]);
-	}
-	config->num_isp_gos_tables = capture->num_gos_tables;
-#endif
 
 	err = isp_capture_ivc_send_control(chan, &control_msg,
 			sizeof(control_msg), CAPTURE_CHANNEL_ISP_SETUP_RESP);

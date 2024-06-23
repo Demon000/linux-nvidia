@@ -66,15 +66,6 @@ static void vi5_release_syncpt(struct platform_device *pdev, uint32_t id)
 	capture_release_syncpt(vi5->vi_thi, id);
 }
 
-static void vi5_get_gos_table(struct platform_device *pdev, int *count,
-			const dma_addr_t **table)
-{
-	struct nvhost_device_data *info = platform_get_drvdata(pdev);
-	struct host_vi5 *vi5 = info->private_data;
-
-	capture_get_gos_table(vi5->vi_thi, count, table);
-}
-
 static int vi5_get_syncpt_gos_backing(struct platform_device *pdev,
 			uint32_t id,
 			dma_addr_t *syncpt_addr,
@@ -91,7 +82,6 @@ static int vi5_get_syncpt_gos_backing(struct platform_device *pdev,
 static struct vi_channel_drv_ops vi5_channel_drv_ops = {
 	.alloc_syncpt = vi5_alloc_syncpt,
 	.release_syncpt = vi5_release_syncpt,
-	.get_gos_table = vi5_get_gos_table,
 	.get_syncpt_gos_backing = vi5_get_syncpt_gos_backing,
 };
 

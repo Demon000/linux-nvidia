@@ -71,22 +71,9 @@ static int isp5_get_syncpt_gos_backing(struct platform_device *pdev,
 
 }
 
-static uint32_t isp5_get_gos_table(struct platform_device *pdev,
-			const dma_addr_t **table)
-{
-	struct nvhost_device_data *info = platform_get_drvdata(pdev);
-	struct host_isp5 *isp5 = info->private_data;
-	uint32_t count;
-
-	capture_get_gos_table(isp5->isp_thi, &count, table);
-
-	return count;
-}
-
 static struct isp_channel_drv_ops isp5_channel_drv_ops = {
 	.alloc_syncpt = isp5_alloc_syncpt,
 	.release_syncpt = isp5_release_syncpt,
-	.get_gos_table = isp5_get_gos_table,
 	.get_syncpt_gos_backing = isp5_get_syncpt_gos_backing,
 };
 

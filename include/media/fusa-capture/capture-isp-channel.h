@@ -49,16 +49,6 @@ struct isp_channel_drv_ops {
 		uint32_t id);
 
 	/**
-	 * @brief Retrieve the GoS table allocated in the ISP-THI carveout.
-	 *
-	 * @param[in]	pdev	ISP platform_device
-	 * @param[out]	table	GoS table pointer
-	 */
-	uint32_t (*get_gos_table)(
-		struct platform_device *pdev,
-		const dma_addr_t **table);
-
-	/**
 	 * @brief Get a syncpt's GoS backing in the ISP-THI carveout.
 	 *
 	 * @param[in]	pdev		ISP platform_device

@@ -203,10 +203,6 @@ static int vi_capture_setup_syncpts(
 	struct vi_capture *capture = chan->capture_data;
 	int err = 0;
 
-	chan->ops->get_gos_table(chan->ndev,
-				&capture->num_gos_tables,
-				&capture->gos_tables);
-
 	err = vi_capture_setup_syncpt(chan, "progress", true,
 			&capture->progress_sp);
 	if (err < 0)
@@ -584,10 +580,6 @@ int vi_capture_setup(
 	struct capture_channel_config *config =
 		&control_desc.channel_setup_req.channel_config;
 	int err = 0;
-#ifdef HAVE_VI_GOS_TABLES
-	int i;
-#endif
-
 	uint32_t vi_inst = 0;
 	struct device *dev;
 
@@ -735,17 +727,6 @@ int vi_capture_setup(
 	config->error_mask_correctable = setup->error_mask_correctable;
 	config->error_mask_uncorrectable = setup->error_mask_uncorrectable;
 	config->stop_on_error_notify_bits = setup->stop_on_error_notify_bits;
-
-#ifdef HAVE_VI_GOS_TABLES
-	dev_dbg(chan->dev, "%u GoS tables configured.\n",
-		capture->num_gos_tables);
-	for (i = 0; i < capture->num_gos_tables; i++) {
-		config->vi_gos_tables[i] = (iova_t)capture->gos_tables[i];
-		dev_dbg(chan->dev, "gos[%d] = 0x%08llx\n",
-			i, (u64)capture->gos_tables[i]);
-	}
-	config->num_vi_gos_tables = capture->num_gos_tables;
-#endif
 
 	config->progress_sp = capture->progress_sp;
 	config->embdata_sp = capture->embdata_sp;

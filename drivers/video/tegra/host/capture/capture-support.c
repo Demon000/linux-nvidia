@@ -50,18 +50,6 @@ void capture_release_syncpt(struct platform_device *pdev, uint32_t id)
 }
 EXPORT_SYMBOL_GPL(capture_release_syncpt);
 
-void capture_get_gos_table(struct platform_device *pdev,
-				int *gos_count,
-				const dma_addr_t **gos_table)
-{
-	int count = 0;
-	dma_addr_t *table = NULL;
-
-	*gos_count = count;
-	*gos_table = table;
-}
-EXPORT_SYMBOL_GPL(capture_get_gos_table);
-
 int capture_get_syncpt_gos_backing(struct platform_device *pdev,
 			uint32_t id,
 			dma_addr_t *syncpt_addr,

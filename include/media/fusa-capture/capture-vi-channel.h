@@ -46,18 +46,6 @@ struct vi_channel_drv_ops {
 		uint32_t id);
 
 	/**
-	 * Retrieve the GoS table allocated in the VI-THI carveout.
-	 *
-	 * @param[in]	pdev	VI platform_device
-	 * @param[out]	count	No. of carveout devices
-	 * @param[out]	table	GoS table pointer
-	 */
-	void (*get_gos_table)(
-		struct platform_device *pdev,
-		int *count,
-		const dma_addr_t **table);
-
-	/**
 	 * Get a syncpt's GoS backing in the VI-THI carveout.
 	 *
 	 * @param[in]	pdev		VI platform_device
