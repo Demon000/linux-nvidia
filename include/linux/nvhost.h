@@ -10,59 +10,6 @@
 #include <linux/host1x.h>
 #include <linux/platform_device.h>
 
-struct nvhost_ctrl_sync_fence_info;
-struct nvhost_fence;
-struct nvhost_job;
-
-#define NVHOST_MODULE_MAX_IORESOURCE_MEM	5
-
-struct nvhost_notification {
-	struct {			/* 0000- */
-		__u32 nanoseconds[2];	/* nanoseconds since Jan. 1, 1970 */
-	} time_stamp;			/* -0007 */
-	__u32 info32;	/* info returned depends on method 0008-000b */
-	__u16 info16;	/* info returned depends on method 000c-000d */
-	__u16 status;	/* user sets bit 15, NV sets status 000e-000f */
-};
-
-struct nvhost_gating_register {
-	u64 addr;
-	u32 prod;
-	u32 disable;
-};
-
-enum tegra_emc_request_type {
-	TEGRA_SET_EMC_FLOOR,		/* lower bound */
-};
-
-struct nvhost_clock {
-	char *name;
-	unsigned long default_rate;
-	enum tegra_emc_request_type request_type;
-	bool disable_scaling;
-	unsigned long devfreq_rate;
-};
-
-struct nvhost_vm_hwid {
-	u64 addr;
-	bool dynamic;
-	u32 shift;
-};
-
-/*
- * Defines HW and SW class identifiers.
- *
- * This is module ID mapping between userspace and kernelspace.
- * The values of enum entries' are referred from NvRmModuleID enum defined
- * in below userspace file:
- * $TOP/vendor/nvidia/tegra/core/include/nvrm_module.h
- * Please make sure each entry below has same value as set in above file.
- */
-enum nvhost_module_identifier {
-	/* Specifies external memory (DDR RAM, etc) */
-	NVHOST_MODULE_ID_EXTERNAL_MEMORY_CONTROLLER = 75,
-};
-
 struct nvhost_device_data {
 	u32		class;		/* Device class */
 
