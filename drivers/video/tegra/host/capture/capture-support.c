@@ -91,10 +91,6 @@ static int capture_support_probe(struct platform_device *pdev)
 
 	(void) dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(39));
 
-	err = nvhost_client_device_get_resources(pdev);
-	if (err)
-		goto error;
-
 	err = nvhost_module_init(pdev);
 	if (err)
 		goto error;

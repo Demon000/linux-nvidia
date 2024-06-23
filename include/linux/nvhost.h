@@ -11,10 +11,7 @@
 #include <linux/platform_device.h>
 
 struct nvhost_device_data {
-	u32		class;		/* Device class */
-
 	void *private_data;		/* private platform data */
-	struct host1x *host1x;		/* host1x device */
 
 	dev_t cdev_region;
 
@@ -38,7 +35,6 @@ struct platform_device *nvhost_get_default_device(void);
 int nvhost_module_init(struct platform_device *ndev);
 
 /* common device management APIs */
-int nvhost_client_device_get_resources(struct platform_device *dev);
 int nvhost_client_device_release(struct platform_device *dev);
 int nvhost_client_device_init(struct platform_device *dev);
 

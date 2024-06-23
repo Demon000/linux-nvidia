@@ -31,8 +31,6 @@
 /* 20% overhead */
 #define ISP_OVERHEAD	20
 
-#define ISP_CLASS_ID 0x32
-
 struct host_isp5 {
 	struct platform_device *pdev;
 	struct platform_device *isp_thi;
@@ -66,7 +64,6 @@ static int isp5_get_syncpt_gos_backing(struct platform_device *pdev,
 
 	return capture_get_syncpt_gos_backing(isp5->isp_thi, id,
 				syncpt_addr);
-
 }
 
 static struct isp_channel_drv_ops isp5_channel_drv_ops = {
@@ -199,10 +196,6 @@ static int isp5_probe(struct platform_device *pdev)
 		return PTR_ERR(isp5->clk);
 	}
 
-	err = nvhost_client_device_get_resources(pdev);
-	if (err)
-		goto put_thi;
-
 	err = nvhost_client_device_init(pdev);
 	if (err)
 		goto put_thi;
@@ -263,7 +256,6 @@ static int isp5_remove(struct platform_device *pdev)
 
 struct nvhost_device_data t19_isp5_info = {
 	.ctrl_ops		= &tegra194_isp5_ctrl_ops,
-	.class			= ISP_CLASS_ID,
 };
 
 static const struct of_device_id tegra_isp5_of_match[] = {

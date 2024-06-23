@@ -11,7 +11,6 @@
 #include <linux/fs.h>
 #include <linux/interconnect.h>
 #include <linux/module.h>
-#include <linux/nvhost.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/of_graph.h>
@@ -52,16 +51,14 @@ static int vi5_alloc_syncpt(struct platform_device *pdev,
 			const char *name,
 			uint32_t *syncpt_id)
 {
-	struct nvhost_device_data *info = platform_get_drvdata(pdev);
-	struct host_vi5 *vi5 = info->private_data;
+	struct host_vi5 *vi5 = platform_get_drvdata(pdev);
 
 	return capture_alloc_syncpt(vi5->vi_thi, name, syncpt_id);
 }
 
 static void vi5_release_syncpt(struct platform_device *pdev, uint32_t id)
 {
-	struct nvhost_device_data *info = platform_get_drvdata(pdev);
-	struct host_vi5 *vi5 = info->private_data;
+	struct host_vi5 *vi5 = platform_get_drvdata(pdev);
 
 	capture_release_syncpt(vi5->vi_thi, id);
 }
@@ -70,8 +67,7 @@ static int vi5_get_syncpt_gos_backing(struct platform_device *pdev,
 			uint32_t id,
 			dma_addr_t *syncpt_addr)
 {
-	struct nvhost_device_data *info = platform_get_drvdata(pdev);
-	struct host_vi5 *vi5 = info->private_data;
+	struct host_vi5 *vi5 = platform_get_drvdata(pdev);
 
 	return capture_get_syncpt_gos_backing(vi5->vi_thi, id,
 				syncpt_addr);
@@ -86,17 +82,10 @@ static struct vi_channel_drv_ops vi5_channel_drv_ops = {
 static int vi5_priv_early_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
-	struct nvhost_device_data *info;
 	struct device_node *thi_np;
 	struct platform_device *thi = NULL;
 	struct host_vi5 *vi5;
 	int err = 0;
-
-	info = (void *)of_device_get_match_data(dev);
-	if (unlikely(info == NULL)) {
-		dev_WARN(dev, "no platform data\n");
-		return -ENODATA;
-	}
 
 	thi_np = of_parse_phandle(dev->of_node, "nvidia,vi-falcon-device", 0);
 	if (thi_np == NULL) {
@@ -129,8 +118,7 @@ static int vi5_priv_early_probe(struct platform_device *pdev)
 
 	vi5->vi_thi = thi;
 	vi5->pdev = pdev;
-	platform_set_drvdata(pdev, info);
-	info->private_data = vi5;
+	platform_set_drvdata(pdev, vi5);
 
 	(void) dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(39));
 
@@ -146,15 +134,12 @@ put_vi:
 	if (err != -EPROBE_DEFER)
 		dev_err(&pdev->dev, "probe failed: %d\n", err);
 
-	info->private_data = NULL;
-
 	return err;
 }
 
 static int vi5_set_rate(struct tegra_camera_dev_info *cdev_info, unsigned long rate)
 {
-	struct nvhost_device_data *info = platform_get_drvdata(cdev_info->pdev);
-	struct host_vi5 *vi5 = info->private_data;
+	struct host_vi5 *vi5 = platform_get_drvdata(cdev_info->pdev);
 
 	return clk_set_rate(vi5->clk, rate);
 }
@@ -166,8 +151,7 @@ static struct tegra_camera_dev_ops vi5_cdev_ops = {
 static int vi5_priv_late_probe(struct platform_device *pdev)
 {
 	struct tegra_camera_dev_info vi_info;
-	struct nvhost_device_data *info = platform_get_drvdata(pdev);
-	struct host_vi5 *vi5 = info->private_data;
+	struct host_vi5 *vi5 = platform_get_drvdata(pdev);
 	int err;
 
 	memset(&vi_info, 0, sizeof(vi_info));
@@ -191,7 +175,6 @@ device_release:
 static int vi5_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
-	struct nvhost_device_data *pdata;
 	struct host_vi5 *vi5;
 	int err;
 
@@ -201,8 +184,7 @@ static int vi5_probe(struct platform_device *pdev)
 	if (err)
 		goto error;
 
-	pdata = platform_get_drvdata(pdev);
-	vi5 = pdata->private_data;
+	vi5 = platform_get_drvdata(pdev);
 
 	vi5->clk = devm_clk_get(dev, NULL);
 	if (IS_ERR(vi5->clk)) {
@@ -215,10 +197,6 @@ static int vi5_probe(struct platform_device *pdev)
 		dev_err(dev, "failed to get icc write handle\n");
 		return PTR_ERR(vi5->icc_write);
 	}
-
-	err = nvhost_client_device_get_resources(pdev);
-	if (err)
-		goto put_vi;
 
 	err = vi5_priv_late_probe(pdev);
 	if (err)
@@ -236,8 +214,7 @@ error:
 
 static int vi5_remove(struct platform_device *pdev)
 {
-	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
-	struct host_vi5 *vi5 = pdata->private_data;
+	struct host_vi5 *vi5 = platform_get_drvdata(pdev);
 
 	tegra_camera_device_unregister(vi5);
 
@@ -246,32 +223,18 @@ static int vi5_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static struct nvhost_device_data t19_vi5_info = {
-};
-
-static struct nvhost_device_data t23x_vi0_info = {
-	.class			= VI_CLASS_ID,
-};
-
-static struct nvhost_device_data t23x_vi1_info = {
-	.class			= VI_CLASS_ID,
-};
-
 static const struct of_device_id tegra_vi5_of_match[] = {
 	{
 		.name = "vi",
 		.compatible = "nvidia,tegra194-vi",
-		.data = &t19_vi5_info,
 	},
 	{
 		.name = "vi0",
 		.compatible = "nvidia,tegra234-vi",
-		.data = &t23x_vi0_info,
 	},
 	{
 		.name = "vi1",
 		.compatible = "nvidia,tegra234-vi",
-		.data = &t23x_vi1_info,
 	},
 	{ },
 };
@@ -280,8 +243,7 @@ MODULE_DEVICE_TABLE(of, tegra_vi5_of_match);
 static int vi_runtime_suspend(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
-	struct nvhost_device_data *info = platform_get_drvdata(pdev);
-	struct host_vi5 *vi5 = info->private_data;
+	struct host_vi5 *vi5 = platform_get_drvdata(pdev);
 	int err;
 
 	if (vi5->icc_write) {
@@ -298,8 +260,7 @@ static int vi_runtime_suspend(struct device *dev)
 static int vi_runtime_resume(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
-	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
-	struct host_vi5 *vi5 = pdata->private_data;
+	struct host_vi5 *vi5 = platform_get_drvdata(pdev);
 	int err;
 
 	if (vi5->icc_write) {

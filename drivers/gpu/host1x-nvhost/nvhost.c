@@ -126,20 +126,6 @@ static struct device *nvhost_client_device_create(struct platform_device *pdev,
 	return dev;
 }
 
-int nvhost_client_device_get_resources(struct platform_device *pdev)
-{
-	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
-
-	pdata->host1x = nvhost_get_host1x(pdev);
-	if (!pdata->host1x) {
-		dev_warn(&pdev->dev, "No platform data for host1x!\n");
-		return -ENODEV;
-	}
-
-	return 0;
-}
-EXPORT_SYMBOL(nvhost_client_device_get_resources);
-
 int nvhost_client_device_init(struct platform_device *pdev)
 {
 	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
@@ -183,10 +169,10 @@ EXPORT_SYMBOL(nvhost_client_device_release);
 u32 nvhost_get_syncpt_client_managed(struct platform_device *pdev,
 				     const char *syncpt_name)
 {
-	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
+	struct host1x *host1x = nvhost_get_host1x(pdev);
 	struct host1x_syncpt *sp;
 
-	sp = host1x_syncpt_alloc(pdata->host1x, HOST1X_SYNCPT_CLIENT_MANAGED,
+	sp = host1x_syncpt_alloc(host1x, HOST1X_SYNCPT_CLIENT_MANAGED,
 				 syncpt_name ? syncpt_name :
 						     dev_name(&pdev->dev));
 	if (!sp)
@@ -198,10 +184,10 @@ EXPORT_SYMBOL_GPL(nvhost_get_syncpt_client_managed);
 
 void nvhost_syncpt_put_ref_ext(struct platform_device *pdev, u32 id)
 {
-	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
+	struct host1x *host1x = nvhost_get_host1x(pdev);
 	struct host1x_syncpt *sp;
 
-	sp = host1x_syncpt_get_by_id_noref(pdata->host1x, id);
+	sp = host1x_syncpt_get_by_id_noref(host1x, id);
 	if (WARN_ON(!sp))
 		return;
 
@@ -211,10 +197,10 @@ EXPORT_SYMBOL(nvhost_syncpt_put_ref_ext);
 
 int nvhost_syncpt_read_ext_check(struct platform_device *pdev, u32 id, u32 *val)
 {
-	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
+	struct host1x *host1x = nvhost_get_host1x(pdev);
 	struct host1x_syncpt *sp;
 
-	sp = host1x_syncpt_get_by_id_noref(pdata->host1x, id);
+	sp = host1x_syncpt_get_by_id_noref(host1x, id);
 	if (!sp)
 		return -EINVAL;
 
