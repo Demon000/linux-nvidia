@@ -228,6 +228,10 @@ static int vi5_probe(struct platform_device *pdev)
 		return PTR_ERR(vi5->icc_write);
 	}
 
+	err = nvhost_client_device_get_resources(pdev);
+	if (err)
+		goto put_vi;
+
 	err = nvhost_module_init(pdev);
 	if (err)
 		goto put_vi;

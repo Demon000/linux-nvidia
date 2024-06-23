@@ -83,6 +83,20 @@ struct host1x *nvhost_get_host1x(struct platform_device *pdev)
 }
 EXPORT_SYMBOL(nvhost_get_host1x);
 
+int nvhost_client_device_get_resources(struct platform_device *pdev)
+{
+	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
+
+	pdata->host1x = nvhost_get_host1x(pdev);
+	if (!pdata->host1x) {
+		dev_warn(&pdev->dev, "No platform data for host1x!\n");
+		return -ENODEV;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(nvhost_client_device_get_resources);
+
 u32 nvhost_get_syncpt_client_managed(struct platform_device *pdev,
 				     const char *syncpt_name)
 {

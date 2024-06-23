@@ -94,6 +94,12 @@ void nvhost_module_idle_mult(struct platform_device *pdev, int refs);
 int nvhost_module_busy(struct platform_device *dev);
 extern const struct dev_pm_ops nvhost_module_pm_ops;
 
+void host1x_writel(struct platform_device *dev, u32 r, u32 v);
+u32 host1x_readl(struct platform_device *dev, u32 r);
+
+/* common device management APIs */
+int nvhost_client_device_get_resources(struct platform_device *dev);
+
 /* public host1x sync-point management APIs */
 u32 nvhost_get_syncpt_client_managed(struct platform_device *pdev,
 				     const char *syncpt_name);

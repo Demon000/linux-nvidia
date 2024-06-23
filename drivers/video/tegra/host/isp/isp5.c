@@ -213,6 +213,10 @@ static int isp5_probe(struct platform_device *pdev)
 		return PTR_ERR(isp5->clk);
 	}
 
+	err = nvhost_client_device_get_resources(pdev);
+	if (err)
+		goto put_thi;
+
 	err = nvhost_module_init(pdev);
 	if (err)
 		goto put_thi;
