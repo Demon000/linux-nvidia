@@ -83,6 +83,49 @@ struct host1x *nvhost_get_host1x(struct platform_device *pdev)
 }
 EXPORT_SYMBOL(nvhost_get_host1x);
 
+static struct device *nvhost_client_device_create(struct platform_device *pdev,
+						  struct cdev *cdev,
+						  const char *cdev_name,
+						  dev_t devno,
+						  const struct file_operations *ops)
+{
+	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
+	struct device *dev;
+	int err;
+
+#if defined(NV_CLASS_CREATE_HAS_NO_OWNER_ARG) /* Linux v6.4 */
+	pdata->nvhost_class = class_create(pdev->dev.of_node->name);
+#else
+	pdata->nvhost_class = class_create(THIS_MODULE, pdev->dev.of_node->name);
+#endif
+	if (IS_ERR(pdata->nvhost_class)) {
+		dev_err(&pdev->dev, "failed to create class\n");
+		return ERR_CAST(pdata->nvhost_class);
+	}
+
+	cdev_init(cdev, ops);
+	cdev->owner = THIS_MODULE;
+
+	err = cdev_add(cdev, devno, 1);
+	if (err < 0) {
+		dev_err(&pdev->dev, "failed to add cdev\n");
+		class_destroy(pdata->nvhost_class);
+		return ERR_PTR(err);
+	}
+
+	dev = device_create(pdata->nvhost_class, &pdev->dev, devno, NULL,
+			    (pdev->id <= 0) ? "nvhost-%s%s" : "nvhost-%s%s.%d",
+			    cdev_name, pdev->dev.of_node->name, pdev->id);
+
+	if (IS_ERR(dev)) {
+		dev_err(&pdev->dev, "failed to create %s device\n", cdev_name);
+		class_destroy(pdata->nvhost_class);
+		cdev_del(cdev);
+	}
+
+	return dev;
+}
+
 int nvhost_client_device_get_resources(struct platform_device *pdev)
 {
 	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
@@ -96,6 +139,46 @@ int nvhost_client_device_get_resources(struct platform_device *pdev)
 	return 0;
 }
 EXPORT_SYMBOL(nvhost_client_device_get_resources);
+
+int nvhost_client_device_init(struct platform_device *pdev)
+{
+	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
+	dev_t devno;
+	int err;
+
+	err = alloc_chrdev_region(&devno, 0, NVHOST_NUM_CDEV, "nvhost");
+	if (err < 0) {
+		dev_err(&pdev->dev, "failed to reserve chrdev region\n");
+		return err;
+	}
+
+	pdata->ctrl_node = nvhost_client_device_create(pdev, &pdata->ctrl_cdev,
+						       "ctrl-", devno,
+						       pdata->ctrl_ops);
+	if (IS_ERR(pdata->ctrl_node))
+		return PTR_ERR(pdata->ctrl_node);
+
+	pdata->cdev_region = devno;
+
+	return 0;
+}
+EXPORT_SYMBOL(nvhost_client_device_init);
+
+int nvhost_client_device_release(struct platform_device *pdev)
+{
+	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
+
+	if (!IS_ERR_OR_NULL(pdata->ctrl_node)) {
+		device_destroy(pdata->nvhost_class, pdata->ctrl_cdev.dev);
+		cdev_del(&pdata->ctrl_cdev);
+		class_destroy(pdata->nvhost_class);
+	}
+
+	unregister_chrdev_region(pdata->cdev_region, NVHOST_NUM_CDEV);
+
+	return 0;
+}
+EXPORT_SYMBOL(nvhost_client_device_release);
 
 u32 nvhost_get_syncpt_client_managed(struct platform_device *pdev,
 				     const char *syncpt_name)
@@ -272,23 +355,7 @@ EXPORT_SYMBOL(nvhost_module_deinit);
 int nvhost_module_init(struct platform_device *pdev)
 {
 	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
-	unsigned int i;
 	int err;
-
-	err = devm_clk_bulk_get_all(&pdev->dev, &pdata->clks);
-	if (err < 0) {
-		dev_err(&pdev->dev, "failed to get clocks %d\n", err);
-		return err;
-	}
-	pdata->num_clks = err;
-
-	for (i = 0; i < pdata->num_clks; i++) {
-		err = clk_set_rate(pdata->clks[i].clk, ULONG_MAX);
-		if (err < 0) {
-			dev_err(&pdev->dev, "failed to set clock rate!\n");
-			return err;
-		}
-	}
 
 	pdata->reset_control = devm_reset_control_get_exclusive_released(
 					&pdev->dev, NULL);
@@ -303,15 +370,7 @@ int nvhost_module_init(struct platform_device *pdev)
 		return err;
 	}
 
-	err = clk_bulk_prepare_enable(pdata->num_clks, pdata->clks);
-	if (err < 0) {
-		reset_control_release(pdata->reset_control);
-		dev_err(&pdev->dev, "failed to enabled clocks: %d\n", err);
-		return err;
-	}
-
 	reset_control_reset(pdata->reset_control);
-	clk_bulk_disable_unprepare(pdata->num_clks, pdata->clks);
 	reset_control_release(pdata->reset_control);
 
 	if (pdata->autosuspend_delay) {
@@ -327,70 +386,6 @@ int nvhost_module_init(struct platform_device *pdev)
 	return 0;
 }
 EXPORT_SYMBOL(nvhost_module_init);
-
-int nvhost_module_busy(struct platform_device *dev)
-{
-	int err;
-
-	err = pm_runtime_get_sync(&dev->dev);
-	if (err < 0) {
-		pm_runtime_put_noidle(&dev->dev);
-		return err;
-	}
-
-	return 0;
-}
-EXPORT_SYMBOL(nvhost_module_busy);
-
-void nvhost_module_idle_mult(struct platform_device *pdev, int refs)
-{
-	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
-
-	while (refs--) {
-		pm_runtime_mark_last_busy(&pdev->dev);
-		if (pdata->autosuspend_delay)
-			pm_runtime_put_autosuspend(&pdev->dev);
-		else
-			pm_runtime_put(&pdev->dev);
-	}
-}
-EXPORT_SYMBOL(nvhost_module_idle_mult);
-
-inline void nvhost_module_idle(struct platform_device *pdev)
-{
-	nvhost_module_idle_mult(pdev, 1);
-}
-EXPORT_SYMBOL(nvhost_module_idle);
-
-static int nvhost_module_runtime_resume(struct device *dev)
-{
-	struct platform_device *pdev = to_platform_device(dev);
-	struct nvhost_device_data *pdata = dev_get_drvdata(dev);
-	int err;
-
-	err = clk_bulk_prepare_enable(pdata->num_clks, pdata->clks);
-	if (err < 0) {
-		dev_err(&pdev->dev, "failed to enabled clocks: %d\n", err);
-		return err;
-	}
-
-	return err;
-}
-
-static int nvhost_module_runtime_suspend(struct device *dev)
-{
-	struct nvhost_device_data *pdata = dev_get_drvdata(dev);
-
-	clk_bulk_disable_unprepare(pdata->num_clks, pdata->clks);
-
-	return 0;
-}
-
-const struct dev_pm_ops nvhost_module_pm_ops = {
-	SET_RUNTIME_PM_OPS(nvhost_module_runtime_suspend,
-			   nvhost_module_runtime_resume, NULL)
-};
-EXPORT_SYMBOL(nvhost_module_pm_ops);
 
 static struct platform_driver nvhost_driver = {
 	.driver = {

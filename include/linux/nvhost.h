@@ -68,13 +68,16 @@ struct nvhost_device_data {
 
 	int		autosuspend_delay;/* Delay before power gated */
 
-	int		num_clks;	/* Number of clocks opened for dev */
-	struct clk_bulk_data *clks;
-
-	int		num_channels;	/* Max num of channel supported */
-
 	void *private_data;		/* private platform data */
 	struct host1x *host1x;		/* host1x device */
+
+	dev_t cdev_region;
+
+	/* device node for ctrl block */
+	struct class *nvhost_class;
+	struct device *ctrl_node;
+	struct cdev ctrl_cdev;
+	const struct file_operations *ctrl_ops;    /* ctrl ops for the module */
 
 	/* Information related to engine-side synchronization */
 	void *syncpt_unit_interface;
@@ -89,16 +92,11 @@ struct platform_device *nvhost_get_default_device(void);
 /* common runtime pm and power domain APIs */
 int nvhost_module_init(struct platform_device *ndev);
 void nvhost_module_deinit(struct platform_device *dev);
-void nvhost_module_idle(struct platform_device *dev);
-void nvhost_module_idle_mult(struct platform_device *pdev, int refs);
-int nvhost_module_busy(struct platform_device *dev);
-extern const struct dev_pm_ops nvhost_module_pm_ops;
-
-void host1x_writel(struct platform_device *dev, u32 r, u32 v);
-u32 host1x_readl(struct platform_device *dev, u32 r);
 
 /* common device management APIs */
 int nvhost_client_device_get_resources(struct platform_device *dev);
+int nvhost_client_device_release(struct platform_device *dev);
+int nvhost_client_device_init(struct platform_device *dev);
 
 /* public host1x sync-point management APIs */
 u32 nvhost_get_syncpt_client_managed(struct platform_device *pdev,

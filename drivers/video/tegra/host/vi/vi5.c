@@ -300,18 +300,13 @@ static int vi_runtime_suspend(struct device *dev)
 	struct platform_device *pdev = to_platform_device(dev);
 	struct nvhost_device_data *info = platform_get_drvdata(pdev);
 	struct host_vi5 *vi5 = info->private_data;
-	int err;
 
-	if (nvhost_module_pm_ops.runtime_suspend != NULL) {
-		err = nvhost_module_pm_ops.runtime_suspend(dev);
-		if (!err && vi5->icc_write) {
-			err = icc_set_bw(vi5->icc_write, 0, 0);
-			if (err)
-				dev_warn(dev,
-					 "failed to set icc_write bw: %d\n", err);
-			return 0;
-		}
-		return err;
+	if (vi5->icc_write) {
+		err = icc_set_bw(vi5->icc_write, 0, 0);
+		if (err)
+			dev_warn(dev,
+				 "failed to set icc_write bw: %d\n", err);
+		return 0;
 	}
 
 	return -EOPNOTSUPP;
@@ -322,18 +317,13 @@ static int vi_runtime_resume(struct device *dev)
 	struct platform_device *pdev = to_platform_device(dev);
 	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
 	struct host_vi5 *vi5 = pdata->private_data;
-	int err;
 
-	if (nvhost_module_pm_ops.runtime_resume != NULL) {
-		err = nvhost_module_pm_ops.runtime_resume(dev);
-		if (!err && vi5->icc_write) {
-			err = icc_set_bw(vi5->icc_write, 0, UINT_MAX);
-			if (err)
-				dev_warn(dev,
-					 "failed to set icc_write bw: %d\n", err);
-			return 0;
-		}
-		return err;
+	if (vi5->icc_write) {
+		err = icc_set_bw(vi5->icc_write, 0, UINT_MAX);
+		if (err)
+			dev_warn(dev,
+				 "failed to set icc_write bw: %d\n", err);
+		return 0;
 	}
 
 	return -EOPNOTSUPP;

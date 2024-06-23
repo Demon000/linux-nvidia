@@ -177,7 +177,6 @@ static struct platform_driver capture_support_driver = {
 		/* Only suitable name for dummy falcon driver */
 		.name = "scare-pigeon",
 		.of_match_table = capture_support_match,
-		.pm = &nvhost_module_pm_ops,
 	},
 };
 

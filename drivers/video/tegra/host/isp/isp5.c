@@ -189,6 +189,7 @@ static int isp5_priv_late_probe(struct platform_device *pdev)
 	return 0;
 
 device_release:
+	nvhost_client_device_release(pdev);
 
 	return err;
 }
@@ -221,6 +222,12 @@ static int isp5_probe(struct platform_device *pdev)
 	if (err)
 		goto put_thi;
 
+	err = nvhost_client_device_init(pdev);
+	if (err) {
+		nvhost_module_deinit(pdev);
+		goto put_thi;
+	}
+
 	err = isp5_priv_late_probe(pdev);
 	if (err)
 		goto put_thi;
@@ -234,6 +241,32 @@ error:
 		dev_err(&pdev->dev, "probe failed: %d\n", err);
 	return err;
 }
+
+static long isp_ioctl(struct file *file,
+		unsigned int cmd, unsigned long arg)
+{
+	return 0;
+}
+
+static int isp_open(struct inode *inode, struct file *file)
+{
+	return nonseekable_open(inode, file);
+}
+
+static int isp_release(struct inode *inode, struct file *file)
+{
+	return 0;
+}
+
+const struct file_operations tegra194_isp5_ctrl_ops = {
+	.owner = THIS_MODULE,
+	.open = isp_open,
+	.unlocked_ioctl = isp_ioctl,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl = isp_ioctl,
+#endif
+	.release = isp_release,
+};
 
 static int isp5_remove(struct platform_device *pdev)
 {
@@ -250,6 +283,7 @@ static int isp5_remove(struct platform_device *pdev)
 }
 
 struct nvhost_device_data t19_isp5_info = {
+	.ctrl_ops		= &tegra194_isp5_ctrl_ops,
 	.autosuspend_delay      = 500,
 	.class			= ISP_CLASS_ID,
 };
@@ -271,9 +305,6 @@ static struct platform_driver isp5_driver = {
 		.name = "tegra194-isp5",
 #ifdef CONFIG_OF
 		.of_match_table = tegra_isp5_of_match,
-#endif
-#ifdef CONFIG_PM
-		.pm = &nvhost_module_pm_ops,
 #endif
 	},
 };

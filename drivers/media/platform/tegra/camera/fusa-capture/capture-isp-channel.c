@@ -198,41 +198,6 @@ struct isp_channel_drv {
 
 /** @} */
 
-/**
- * @brief Power on ISP via Host1x. The ISP channel is registered as an NvHost
- * ISP client and the reference count is incremented by one.
- *
- * @param[in]	chan	ISP channel context
- * @returns	0 (success), neg. errno (failure)
- */
-static int isp_channel_power_on(
-	struct tegra_isp_channel *chan)
-{
-	int ret = 0;
-
-	dev_dbg(chan->isp_dev, "isp_channel_power_on\n");
-	ret = nvhost_module_busy(chan->ndev);
-	if (ret < 0) {
-		dev_err(chan->isp_dev,
-			"%s: failed to power on isp\n", __func__);
-		return ret;
-	}
-	return 0;
-}
-
-/**
- * @brief Power off ISP via Host1x. The NvHost module reference count is
- * decreased by one and the ISP channel is unregistered as a client.
- *
- * @param[in]	chan	ISP channel context
- */
-static void isp_channel_power_off(
-	struct tegra_isp_channel *chan)
-{
-	dev_dbg(chan->isp_dev, "isp_channel_power_off\n");
-	nvhost_module_idle(chan->ndev);
-}
-
 static struct isp_channel_drv *chdrv_;
 static DEFINE_MUTEX(chdrv_lock);
 
@@ -281,10 +246,6 @@ static int isp_channel_open(
 	chan->ops = chan_drv->ops;
 	chan->priv = file;
 
-	err = isp_channel_power_on(chan);
-	if (err < 0)
-		goto error;
-
 	err = isp_capture_init(chan);
 	if (err < 0)
 		goto init_err;
@@ -306,9 +267,8 @@ static int isp_channel_open(
 chan_err:
 	isp_capture_shutdown(chan);
 init_err:
-	isp_channel_power_off(chan);
-error:
 	kfree(chan);
+
 	return err;
 }
 
