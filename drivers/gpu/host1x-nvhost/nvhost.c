@@ -14,7 +14,6 @@
 #include <linux/nvhost_t194.h>
 #include <linux/of_platform.h>
 #include <linux/pm_runtime.h>
-#include <linux/reset.h>
 #include <linux/scatterlist.h>
 #include <linux/slab.h>
 #include <linux/version.h>
@@ -27,9 +26,6 @@
 #define TEGRA234_SYNCPT_PAGE_SIZE 0x10000
 #define TEGRA234_SYNCPT_SHIM_BASE 0x60000000
 #define TEGRA234_SYNCPT_SHIM_SIZE 0x04000000
-
-#define THI_STREAMID0	0x00000030
-#define THI_STREAMID1	0x00000034
 
 #define NVHOST_NUM_CDEV 1
 

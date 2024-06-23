@@ -15,6 +15,7 @@
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
+#include <linux/reset.h>
 #include <soc/tegra/camrtc-capture.h>
 #include <linux/version.h>
 #include <soc/tegra/fuse.h>
