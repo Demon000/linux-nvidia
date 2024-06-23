@@ -24,11 +24,6 @@ void nv_camera_log_isp_submit(struct platform_device *pdev,
 		u32 channel_id,
 		u64 timestamp)
 {
-	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
-
-	if (pdata == NULL)
-		return;
-
 	/*
 	 * Events are meant to be matched with their userspace
 	 * analogues. Instead of the PID as (this) thread's ID use the
@@ -36,7 +31,7 @@ void nv_camera_log_isp_submit(struct platform_device *pdev,
 	 * ID (i.e. PID).
 	 */
 	trace_isp_task_submit(
-		pdata->class,
+		0,
 		channel_id,
 		syncpt_id,
 		syncpt_thresh,
@@ -52,11 +47,6 @@ void nv_camera_log_vi_submit(struct platform_device *pdev,
 		u32 channel_id,
 		u64 timestamp)
 {
-	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
-
-	if (pdata == NULL)
-		return;
-
 	/*
 	 * Events are meant to be matched with their userspace
 	 * analogues. Instead of the PID as (this) thread's ID use the
@@ -64,7 +54,7 @@ void nv_camera_log_vi_submit(struct platform_device *pdev,
 	 * ID (i.e. PID).
 	 */
 	trace_vi_task_submit(
-		pdata->class,
+		0,
 		channel_id,
 		syncpt_id,
 		syncpt_thresh,
@@ -83,11 +73,6 @@ void nv_camera_log(struct platform_device *pdev,
 		u64 timestamp,
 		u32 type)
 {
-	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
-
-	if (pdata == NULL)
-		return;
-
 	/*
 	 * Events are meant to be matched with their userspace
 	 * analogues. Instead of the PID as (this) thread's ID use the
@@ -95,7 +80,7 @@ void nv_camera_log(struct platform_device *pdev,
 	 * ID (i.e. PID).
 	 */
 	trace_camera_task_log(
-		pdata->class,
+		0,
 		type,
 		timestamp,
 		current->pid,

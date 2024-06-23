@@ -714,20 +714,7 @@ static void rtcpu_trace_vinotify_event(struct camrtc_event_struct *event)
 static void rtcpu_trace_vi_frame_event(struct tegra_rtcpu_trace *tracer,
 				struct camrtc_event_struct *event)
 {
-	struct nvhost_device_data *pdata = NULL;
 	u64 ts = 0;
-	u32 vi_unit_id = event->data.data32[6];
-
-	if (tracer->vi_platform_device == NULL)
-		return;
-
-	if (vi_unit_id == 0)
-		pdata = platform_get_drvdata(tracer->vi_platform_device);
-	else if (vi_unit_id == 1)
-		pdata = platform_get_drvdata(tracer->vi1_platform_device);
-
-	if (pdata == NULL)
-		return;
 
 	switch (event->header.id) {
 	case camrtc_trace_vi_frame_begin:
@@ -739,7 +726,7 @@ static void rtcpu_trace_vi_frame_event(struct tegra_rtcpu_trace *tracer,
 			event->data.data32[2],
 			event->data.data32[0],
 			event->data.data32[1],
-			pdata->class
+			0
 		);
 		break;
 	case camrtc_trace_vi_frame_end:
@@ -751,7 +738,7 @@ static void rtcpu_trace_vi_frame_event(struct tegra_rtcpu_trace *tracer,
 			event->data.data32[2],
 			event->data.data32[0],
 			event->data.data32[1],
-			pdata->class
+			0
 		);
 		break;
 	default:
@@ -800,13 +787,7 @@ const unsigned int g_trace_isp_falcon_task_str_count =
 static void rtcpu_trace_isp_task_event(struct tegra_rtcpu_trace *tracer,
 	struct camrtc_event_struct *event)
 {
-	struct nvhost_device_data *pdata = NULL;
-
 	if (tracer->isp_platform_device == NULL)
-		return;
-
-	pdata = platform_get_drvdata(tracer->isp_platform_device);
-	if (pdata == NULL)
 		return;
 
 	switch (event->header.id) {
@@ -816,7 +797,7 @@ static void rtcpu_trace_isp_task_event(struct tegra_rtcpu_trace *tracer,
 			event->data.data32[2],
 			event->data.data32[0],
 			event->data.data32[1],
-			pdata->class
+			0
 		);
 		break;
 	case camrtc_trace_isp_task_end:
@@ -825,7 +806,7 @@ static void rtcpu_trace_isp_task_event(struct tegra_rtcpu_trace *tracer,
 			event->data.data32[2],
 			event->data.data32[0],
 			event->data.data32[1],
-			pdata->class
+			0
 		);
 		break;
 	default:
