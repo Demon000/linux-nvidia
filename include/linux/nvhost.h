@@ -64,16 +64,12 @@ enum nvhost_module_identifier {
 };
 
 struct nvhost_device_data {
-	/* interrupt ISR routine for falcon based engines */
-	int irq;
-
 	u32		class;		/* Device class */
 
 	int		autosuspend_delay;/* Delay before power gated */
 
 	int		num_clks;	/* Number of clocks opened for dev */
 	struct clk_bulk_data *clks;
-	struct mutex	lock;		/* Power management lock */
 
 	int		num_channels;	/* Max num of channel supported */
 	dev_t cdev_region;
@@ -82,9 +78,6 @@ struct nvhost_device_data {
 	struct class *nvhost_class;
 	struct device *ctrl_node;
 	struct cdev ctrl_cdev;
-	const struct file_operations *ctrl_ops;    /* ctrl ops for the module */
-
-	struct dentry *debugfs;		/* debugfs directory */
 
 	void *private_data;		/* private platform data */
 	struct platform_device *pdev;	/* owner platform_device */
@@ -107,10 +100,6 @@ void nvhost_module_idle(struct platform_device *dev);
 void nvhost_module_idle_mult(struct platform_device *pdev, int refs);
 int nvhost_module_busy(struct platform_device *dev);
 extern const struct dev_pm_ops nvhost_module_pm_ops;
-
-/* common device management APIs */
-int nvhost_client_device_release(struct platform_device *dev);
-int nvhost_client_device_init(struct platform_device *dev);
 
 /* public host1x sync-point management APIs */
 u32 nvhost_get_syncpt_client_managed(struct platform_device *pdev,

@@ -4,8 +4,6 @@
  * VI5 driver
  */
 
-#include <asm/ioctls.h>
-#include <linux/debugfs.h>
 #include <linux/device.h>
 #include <linux/dma-buf.h>
 #include <linux/dma-mapping.h>
@@ -32,7 +30,6 @@
 #include <media/tegra_camera_platform.h>
 #include <soc/tegra/camrtc-capture.h>
 #include <soc/tegra/fuse.h>
-#include <uapi/linux/nvhost_vi_ioctl.h>
 
 #include "capture/capture-support.h"
 
@@ -49,16 +46,6 @@ struct host_vi5 {
 	struct platform_device *vi_thi;
 	struct icc_path *icc_write;
 	struct clk *clk;
-
-	/* Debugfs */
-	struct vi5_debug {
-		struct debugfs_regset32 ch0;
-	} debug;
-
-	/* WAR: Adding a temp flags to avoid registering to V4L2 and
-	 * tegra camera platform device.
-	 */
-	bool skip_v4l2_init;
 };
 
 static int vi5_alloc_syncpt(struct platform_device *pdev,
@@ -152,14 +139,9 @@ static int vi5_priv_early_probe(struct platform_device *pdev)
 		goto put_vi;
 	}
 
-	vi5->skip_v4l2_init = of_property_read_bool(dev->of_node,
-					"nvidia,skip-v4l2-init");
 	vi5->vi_thi = thi;
 	vi5->pdev = pdev;
-	info->pdev = pdev;
-	mutex_init(&info->lock);
 	platform_set_drvdata(pdev, info);
-	info->private_data = vi5;
 
 	(void) dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(39));
 
@@ -213,7 +195,6 @@ static int vi5_priv_late_probe(struct platform_device *pdev)
 	return 0;
 
 device_release:
-	nvhost_client_device_release(pdev);
 
 	return err;
 }
@@ -249,10 +230,6 @@ static int vi5_probe(struct platform_device *pdev)
 	err = nvhost_module_init(pdev);
 	if (err)
 		goto put_vi;
-
-	err = nvhost_client_device_init(pdev);
-	if (err)
-		goto deinit;
 
 	err = vi5_priv_late_probe(pdev);
 	if (err)

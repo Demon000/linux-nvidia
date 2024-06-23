@@ -98,7 +98,14 @@ EXPORT_SYMBOL_GPL(capture_get_syncpt_gos_backing);
 static int capture_support_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
+	struct nvhost_device_data *info;
 	int err = 0;
+
+	info = (void *)of_device_get_match_data(dev);
+	if (WARN_ON(info == NULL))
+		return -ENODATA;
+
+	platform_set_drvdata(pdev, info);
 
 	(void) dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(39));
 
@@ -106,23 +113,16 @@ static int capture_support_probe(struct platform_device *pdev)
 	if (err)
 		goto error;
 
-	err = nvhost_client_device_init(pdev);
-	if (err) {
-		nvhost_module_deinit(pdev);
-		goto error;
-	}
-
 	err = nvhost_syncpt_unit_interface_init(pdev);
 	if (err)
-		goto device_release;
+		goto error;
 
 	return 0;
 
-device_release:
-	nvhost_client_device_release(pdev);
 error:
 	if (err != -EPROBE_DEFER)
 		dev_err(dev, "probe failed: %d\n", err);
+
 	return err;
 }
 

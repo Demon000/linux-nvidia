@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 // SPDX-FileCopyrightText: Copyright (c) 2017-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 
-#include <asm/ioctls.h>
 #include <linux/clk.h>
-#include <linux/debugfs.h>
 #include <linux/device.h>
 #include <linux/dma-buf.h>
 #include <linux/dma-mapping.h>
@@ -27,9 +25,7 @@
 #include <soc/tegra/camrtc-capture.h>
 #include <soc/tegra/fuse-helper.h>
 
-#include "isp5.h"
 #include "capture/capture-support.h"
-#include <uapi/linux/nvhost_isp_ioctl.h>
 
 #define ISP_PPC		2
 /* 20% overhead */
@@ -94,7 +90,7 @@ static struct isp_channel_drv_ops isp5_channel_drv_ops = {
 	.get_syncpt_gos_backing = isp5_get_syncpt_gos_backing,
 };
 
-int isp5_priv_early_probe(struct platform_device *pdev)
+static int isp5_priv_early_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct nvhost_device_data *info;
@@ -136,10 +132,7 @@ int isp5_priv_early_probe(struct platform_device *pdev)
 
 	isp5->isp_thi = thi;
 	isp5->pdev = pdev;
-	info->pdev = pdev;
-	mutex_init(&info->lock);
 	platform_set_drvdata(pdev, info);
-	info->private_data = isp5;
 
 	/* A bit was stolen */
 	(void) dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(39));
@@ -170,7 +163,7 @@ static struct tegra_camera_dev_ops isp5_cdev_ops = {
 	.set_rate = isp5_set_rate,
 };
 
-int isp5_priv_late_probe(struct platform_device *pdev)
+static int isp5_priv_late_probe(struct platform_device *pdev)
 {
 	struct tegra_camera_dev_info isp_info;
 	struct nvhost_device_data *info = platform_get_drvdata(pdev);
@@ -195,7 +188,6 @@ int isp5_priv_late_probe(struct platform_device *pdev)
 	return 0;
 
 device_release:
-	nvhost_client_device_release(pdev);
 
 	return err;
 }
@@ -224,12 +216,6 @@ static int isp5_probe(struct platform_device *pdev)
 	if (err)
 		goto put_thi;
 
-	err = nvhost_client_device_init(pdev);
-	if (err) {
-		nvhost_module_deinit(pdev);
-		goto put_thi;
-	}
-
 	err = isp5_priv_late_probe(pdev);
 	if (err)
 		goto put_thi;
@@ -243,65 +229,6 @@ error:
 		dev_err(&pdev->dev, "probe failed: %d\n", err);
 	return err;
 }
-
-static long isp_ioctl(struct file *file,
-		unsigned int cmd, unsigned long arg)
-{
-	struct t194_isp5_file_private *filepriv = file->private_data;
-	struct platform_device *pdev = filepriv->pdev;
-
-	if (_IOC_TYPE(cmd) != NVHOST_ISP_IOCTL_MAGIC)
-		return -EFAULT;
-
-	switch (_IOC_NR(cmd)) {
-	case _IOC_NR(NVHOST_ISP_IOCTL_SET_ISP_LA_BW): {
-		/* No BW control needed. Return without error. */
-		return 0;
-	}
-	default:
-		dev_err(&pdev->dev,
-		"%s: Unknown ISP ioctl.\n", __func__);
-		return -EINVAL;
-	}
-	return 0;
-}
-
-static int isp_open(struct inode *inode, struct file *file)
-{
-	struct nvhost_device_data *pdata = container_of(inode->i_cdev,
-					struct nvhost_device_data, ctrl_cdev);
-	struct platform_device *pdev = pdata->pdev;
-	struct t194_isp5_file_private *filepriv;
-
-	filepriv = kzalloc(sizeof(*filepriv), GFP_KERNEL);
-	if (unlikely(filepriv == NULL))
-		return -ENOMEM;
-
-	filepriv->pdev = pdev;
-
-	file->private_data = filepriv;
-
-	return nonseekable_open(inode, file);
-}
-
-static int isp_release(struct inode *inode, struct file *file)
-{
-	struct t194_isp5_file_private *filepriv = file->private_data;
-
-	kfree(filepriv);
-
-	return 0;
-}
-
-const struct file_operations tegra194_isp5_ctrl_ops = {
-	.owner = THIS_MODULE,
-	.open = isp_open,
-	.unlocked_ioctl = isp_ioctl,
-#ifdef CONFIG_COMPAT
-	.compat_ioctl = isp_ioctl,
-#endif
-	.release = isp_release,
-};
 
 static int isp5_remove(struct platform_device *pdev)
 {
@@ -318,7 +245,6 @@ static int isp5_remove(struct platform_device *pdev)
 }
 
 struct nvhost_device_data t19_isp5_info = {
-	.ctrl_ops		= &tegra194_isp5_ctrl_ops,
 	.autosuspend_delay      = 500,
 	.class			= ISP_CLASS_ID,
 };

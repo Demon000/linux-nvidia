@@ -4,7 +4,6 @@
 #include <nvidia/conftest.h>
 
 #include <linux/clk.h>
-#include <linux/debugfs.h>
 #include <linux/dma-fence.h>
 #include <linux/dma-mapping.h>
 #include <linux/host1x-next.h>
@@ -83,89 +82,6 @@ struct host1x *nvhost_get_host1x(struct platform_device *pdev)
 	return host1x;
 }
 EXPORT_SYMBOL(nvhost_get_host1x);
-
-static struct device *nvhost_client_device_create(struct platform_device *pdev,
-						  struct cdev *cdev,
-						  const char *cdev_name,
-						  dev_t devno,
-						  const struct file_operations *ops)
-{
-	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
-	struct device *dev;
-	int err;
-
-#if defined(NV_CLASS_CREATE_HAS_NO_OWNER_ARG) /* Linux v6.4 */
-	pdata->nvhost_class = class_create(pdev->dev.of_node->name);
-#else
-	pdata->nvhost_class = class_create(THIS_MODULE, pdev->dev.of_node->name);
-#endif
-	if (IS_ERR(pdata->nvhost_class)) {
-		dev_err(&pdev->dev, "failed to create class\n");
-		return ERR_CAST(pdata->nvhost_class);
-	}
-
-	cdev_init(cdev, ops);
-	cdev->owner = THIS_MODULE;
-
-	err = cdev_add(cdev, devno, 1);
-	if (err < 0) {
-		dev_err(&pdev->dev, "failed to add cdev\n");
-		class_destroy(pdata->nvhost_class);
-		return ERR_PTR(err);
-	}
-
-	dev = device_create(pdata->nvhost_class, &pdev->dev, devno, NULL,
-			    (pdev->id <= 0) ? "nvhost-%s%s" : "nvhost-%s%s.%d",
-			    cdev_name, pdev->dev.of_node->name, pdev->id);
-
-	if (IS_ERR(dev)) {
-		dev_err(&pdev->dev, "failed to create %s device\n", cdev_name);
-		class_destroy(pdata->nvhost_class);
-		cdev_del(cdev);
-	}
-
-	return dev;
-}
-
-int nvhost_client_device_init(struct platform_device *pdev)
-{
-	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
-	dev_t devno;
-	int err;
-
-	err = alloc_chrdev_region(&devno, 0, NVHOST_NUM_CDEV, "nvhost");
-	if (err < 0) {
-		dev_err(&pdev->dev, "failed to reserve chrdev region\n");
-		return err;
-	}
-
-	pdata->ctrl_node = nvhost_client_device_create(pdev, &pdata->ctrl_cdev,
-						       "ctrl-", devno,
-						       pdata->ctrl_ops);
-	if (IS_ERR(pdata->ctrl_node))
-		return PTR_ERR(pdata->ctrl_node);
-
-	pdata->cdev_region = devno;
-
-	return 0;
-}
-EXPORT_SYMBOL(nvhost_client_device_init);
-
-int nvhost_client_device_release(struct platform_device *pdev)
-{
-	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
-
-	if (!IS_ERR_OR_NULL(pdata->ctrl_node)) {
-		device_destroy(pdata->nvhost_class, pdata->ctrl_cdev.dev);
-		cdev_del(&pdata->ctrl_cdev);
-		class_destroy(pdata->nvhost_class);
-	}
-
-	unregister_chrdev_region(pdata->cdev_region, NVHOST_NUM_CDEV);
-
-	return 0;
-}
-EXPORT_SYMBOL(nvhost_client_device_release);
 
 u32 nvhost_get_syncpt_client_managed(struct platform_device *pdev,
 				     const char *syncpt_name)
@@ -335,11 +251,7 @@ EXPORT_SYMBOL(nvhost_syncpt_address);
 
 void nvhost_module_deinit(struct platform_device *pdev)
 {
-	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
-
 	pm_runtime_disable(&pdev->dev);
-
-	debugfs_remove_recursive(pdata->debugfs);
 }
 EXPORT_SYMBOL(nvhost_module_deinit);
 
@@ -397,9 +309,6 @@ int nvhost_module_init(struct platform_device *pdev)
 	pm_runtime_enable(&pdev->dev);
 	if (!pm_runtime_enabled(&pdev->dev))
 		return -EOPNOTSUPP;
-
-	pdata->debugfs = debugfs_create_dir(pdev->dev.of_node->name,
-					    NULL);
 
 	return 0;
 }
