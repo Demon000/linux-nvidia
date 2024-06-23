@@ -300,6 +300,7 @@ static int vi_runtime_suspend(struct device *dev)
 	struct platform_device *pdev = to_platform_device(dev);
 	struct nvhost_device_data *info = platform_get_drvdata(pdev);
 	struct host_vi5 *vi5 = info->private_data;
+	int err;
 
 	if (vi5->icc_write) {
 		err = icc_set_bw(vi5->icc_write, 0, 0);
@@ -317,6 +318,7 @@ static int vi_runtime_resume(struct device *dev)
 	struct platform_device *pdev = to_platform_device(dev);
 	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
 	struct host_vi5 *vi5 = pdata->private_data;
+	int err;
 
 	if (vi5->icc_write) {
 		err = icc_set_bw(vi5->icc_write, 0, UINT_MAX);

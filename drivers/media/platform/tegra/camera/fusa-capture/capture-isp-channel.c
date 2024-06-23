@@ -295,7 +295,6 @@ static int isp_channel_release(
 	struct isp_channel_drv *chan_drv = chan->drv;
 
 	isp_capture_shutdown(chan);
-	isp_channel_power_off(chan);
 
 	mutex_lock(&chan_drv->lock);
 
