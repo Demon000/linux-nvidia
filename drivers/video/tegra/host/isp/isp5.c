@@ -133,6 +133,7 @@ static int isp5_priv_early_probe(struct platform_device *pdev)
 	isp5->isp_thi = thi;
 	isp5->pdev = pdev;
 	platform_set_drvdata(pdev, info);
+	info->private_data = isp5;
 
 	/* A bit was stolen */
 	(void) dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(39));

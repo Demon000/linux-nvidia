@@ -142,6 +142,7 @@ static int vi5_priv_early_probe(struct platform_device *pdev)
 	vi5->vi_thi = thi;
 	vi5->pdev = pdev;
 	platform_set_drvdata(pdev, info);
+	info->private_data = vi5;
 
 	(void) dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(39));
 

@@ -72,15 +72,8 @@ struct nvhost_device_data {
 	struct clk_bulk_data *clks;
 
 	int		num_channels;	/* Max num of channel supported */
-	dev_t cdev_region;
-
-	/* device node for ctrl block */
-	struct class *nvhost_class;
-	struct device *ctrl_node;
-	struct cdev ctrl_cdev;
 
 	void *private_data;		/* private platform data */
-	struct platform_device *pdev;	/* owner platform_device */
 	struct host1x *host1x;		/* host1x device */
 
 	/* Information related to engine-side synchronization */

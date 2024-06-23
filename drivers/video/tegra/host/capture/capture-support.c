@@ -131,20 +131,36 @@ static int capture_support_remove(struct platform_device *pdev)
 	return 0;
 }
 
+struct nvhost_device_data t19_isp_thi_info = {
+};
+
+struct nvhost_device_data t19_vi_thi_info = {
+};
+
+struct nvhost_device_data t23x_vi0_thi_info = {
+};
+
+struct nvhost_device_data t23x_vi1_thi_info = {
+};
+
 static const struct of_device_id capture_support_match[] = {
 	{
 		.compatible = "nvidia,tegra194-isp-thi",
+		.data = &t19_isp_thi_info,
 	},
 	{
 		.compatible = "nvidia,tegra194-vi-thi",
+		.data = &t19_vi_thi_info,
 	},
 	{
 		.name = "vi0-thi",
 		.compatible = "nvidia,tegra234-vi-thi",
+		.data = &t23x_vi0_thi_info,
 	},
 	{
 		.name = "vi1-thi",
 		.compatible = "nvidia,tegra234-vi-thi",
+		.data = &t23x_vi1_thi_info,
 	},
 	{ },
 };
