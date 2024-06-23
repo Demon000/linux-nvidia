@@ -58,9 +58,7 @@ struct vi_channel_drv_ops {
 	int (*get_syncpt_gos_backing)(
 		struct platform_device *pdev,
 		uint32_t id,
-		dma_addr_t *syncpt_addr,
-		uint32_t *gos_index,
-		uint32_t *gos_offset);
+		dma_addr_t *syncpt_addr);
 };
 
 /**

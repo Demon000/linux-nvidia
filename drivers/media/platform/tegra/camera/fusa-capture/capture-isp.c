@@ -140,8 +140,7 @@ static int isp_capture_setup_syncpt(
 	if (err)
 		goto cleanup;
 
-	err = chan->ops->get_syncpt_gos_backing(pdev, sp->id, &sp->shim_addr,
-				&gos_index, &gos_offset);
+	err = chan->ops->get_syncpt_gos_backing(pdev, sp->id, &sp->shim_addr);
 	if (err)
 		goto cleanup;
 
@@ -274,8 +273,8 @@ static int isp_capture_populate_fence_info(
 	uint64_t sp_raw;
 	uint32_t sp_id;
 	dma_addr_t syncpt_addr;
-	uint32_t gos_index;
-	uint32_t gos_offset;
+	uint32_t gos_index = GOS_INDEX_INVALID;
+	uint32_t gos_offset = 0;
 	uint64_t gos_info = 0;
 	reloc_page_addr += fence_offset & PAGE_MASK;
 
@@ -289,8 +288,7 @@ static int isp_capture_populate_fence_info(
 			(fence_offset & ~PAGE_MASK)));
 	sp_id = sp_raw & 0xFFFFFFFF;
 
-	err = chan->ops->get_syncpt_gos_backing(chan->ndev, sp_id, &syncpt_addr,
-			&gos_index, &gos_offset);
+	err = chan->ops->get_syncpt_gos_backing(chan->ndev, sp_id, &syncpt_addr);
 	if (err) {
 		dev_err(chan->isp_dev,
 			"%s: get GoS backing failed\n", __func__);

@@ -120,7 +120,8 @@ static int vi_capture_setup_syncpt(
 	struct syncpoint_info *sp)
 {
 	struct platform_device *pdev = chan->ndev;
-	uint32_t gos_index, gos_offset;
+	uint32_t gos_index = GOS_INDEX_INVALID;
+	uint32_t gos_offset = 0;
 	int err;
 
 	memset(sp, 0, sizeof(*sp));
@@ -137,8 +138,7 @@ static int vi_capture_setup_syncpt(
 	if (err)
 		goto cleanup;
 
-	err = chan->ops->get_syncpt_gos_backing(pdev, sp->id, &sp->shim_addr,
-				&gos_index, &gos_offset);
+	err = chan->ops->get_syncpt_gos_backing(pdev, sp->id, &sp->shim_addr);
 	if (err)
 		goto cleanup;
 

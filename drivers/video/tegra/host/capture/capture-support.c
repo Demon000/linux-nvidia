@@ -52,12 +52,8 @@ EXPORT_SYMBOL_GPL(capture_release_syncpt);
 
 int capture_get_syncpt_gos_backing(struct platform_device *pdev,
 			uint32_t id,
-			dma_addr_t *syncpt_addr,
-			uint32_t *gos_index,
-			uint32_t *gos_offset)
+			dma_addr_t *syncpt_addr)
 {
-	uint32_t index = GOS_INDEX_INVALID;
-	uint32_t offset = 0;
 	dma_addr_t addr;
 
 	if (id == 0) {
@@ -65,7 +61,7 @@ int capture_get_syncpt_gos_backing(struct platform_device *pdev,
 		return -EINVAL;
 	}
 
-	if (syncpt_addr == NULL || gos_index == NULL || gos_offset == NULL) {
+	if (syncpt_addr == NULL) {
 		dev_err(&pdev->dev, "%s: null arguments\n", __func__);
 		return -EINVAL;
 	}
@@ -73,11 +69,9 @@ int capture_get_syncpt_gos_backing(struct platform_device *pdev,
 	addr = nvhost_syncpt_address(pdev, id);
 
 	*syncpt_addr = addr;
-	*gos_index = index;
-	*gos_offset = offset;
 
-	dev_dbg(&pdev->dev, "%s: id=%u addr=0x%llx gos_idx=%u gos_offset=%u\n",
-		__func__, id, addr, index, offset);
+	dev_dbg(&pdev->dev, "%s: id=%u addr=0x%llx\n",
+		__func__, id, addr);
 
 	return 0;
 }

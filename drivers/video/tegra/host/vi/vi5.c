@@ -68,15 +68,13 @@ static void vi5_release_syncpt(struct platform_device *pdev, uint32_t id)
 
 static int vi5_get_syncpt_gos_backing(struct platform_device *pdev,
 			uint32_t id,
-			dma_addr_t *syncpt_addr,
-			uint32_t *gos_index,
-			uint32_t *gos_offset)
+			dma_addr_t *syncpt_addr)
 {
 	struct nvhost_device_data *info = platform_get_drvdata(pdev);
 	struct host_vi5 *vi5 = info->private_data;
 
 	return capture_get_syncpt_gos_backing(vi5->vi_thi, id,
-				syncpt_addr, gos_index, gos_offset);
+				syncpt_addr);
 }
 
 static struct vi_channel_drv_ops vi5_channel_drv_ops = {
