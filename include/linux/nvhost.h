@@ -66,8 +66,6 @@ enum nvhost_module_identifier {
 struct nvhost_device_data {
 	u32		class;		/* Device class */
 
-	int		autosuspend_delay;/* Delay before power gated */
-
 	void *private_data;		/* private platform data */
 	struct host1x *host1x;		/* host1x device */
 
@@ -91,7 +89,6 @@ struct platform_device *nvhost_get_default_device(void);
 
 /* common runtime pm and power domain APIs */
 int nvhost_module_init(struct platform_device *ndev);
-void nvhost_module_deinit(struct platform_device *dev);
 
 /* common device management APIs */
 int nvhost_client_device_get_resources(struct platform_device *dev);

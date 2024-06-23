@@ -238,12 +238,10 @@ static int vi5_probe(struct platform_device *pdev)
 
 	err = vi5_priv_late_probe(pdev);
 	if (err)
-		goto deinit;
+		goto put_vi;
 
 	return 0;
 
-deinit:
-	nvhost_module_deinit(pdev);
 put_vi:
 	platform_device_put(vi5->vi_thi);
 	if (err != -EPROBE_DEFER)

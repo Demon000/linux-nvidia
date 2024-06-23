@@ -346,12 +346,6 @@ dma_addr_t nvhost_syncpt_address(struct platform_device *pdev, u32 id)
 }
 EXPORT_SYMBOL(nvhost_syncpt_address);
 
-void nvhost_module_deinit(struct platform_device *pdev)
-{
-	pm_runtime_disable(&pdev->dev);
-}
-EXPORT_SYMBOL(nvhost_module_deinit);
-
 int nvhost_module_init(struct platform_device *pdev)
 {
 	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
@@ -372,16 +366,6 @@ int nvhost_module_init(struct platform_device *pdev)
 
 	reset_control_reset(pdata->reset_control);
 	reset_control_release(pdata->reset_control);
-
-	if (pdata->autosuspend_delay) {
-		pm_runtime_set_autosuspend_delay(&pdev->dev,
-			pdata->autosuspend_delay);
-		pm_runtime_use_autosuspend(&pdev->dev);
-	}
-
-	pm_runtime_enable(&pdev->dev);
-	if (!pm_runtime_enabled(&pdev->dev))
-		return -EOPNOTSUPP;
 
 	return 0;
 }

@@ -223,10 +223,8 @@ static int isp5_probe(struct platform_device *pdev)
 		goto put_thi;
 
 	err = nvhost_client_device_init(pdev);
-	if (err) {
-		nvhost_module_deinit(pdev);
+	if (err)
 		goto put_thi;
-	}
 
 	err = isp5_priv_late_probe(pdev);
 	if (err)
@@ -284,7 +282,6 @@ static int isp5_remove(struct platform_device *pdev)
 
 struct nvhost_device_data t19_isp5_info = {
 	.ctrl_ops		= &tegra194_isp5_ctrl_ops,
-	.autosuspend_delay      = 500,
 	.class			= ISP_CLASS_ID,
 };
 
