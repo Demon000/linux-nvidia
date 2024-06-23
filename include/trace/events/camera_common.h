@@ -85,19 +85,17 @@ TRACE_EVENT(tegra_channel_capture_setup,
 	TP_PROTO(struct tegra_channel *chan, unsigned int index),
 	TP_ARGS(chan, index),
 	TP_STRUCT__entry(
-		__field(unsigned int,	vnc_id)
 		__field(unsigned int,	width)
 		__field(unsigned int,	height)
 		__field(unsigned int,	format)
 	),
 	TP_fast_assign(
-		__entry->vnc_id = chan->vnc_id[index];
 		__entry->width = chan->format.width;
 		__entry->height = chan->format.height;
 		__entry->format = chan->fmtinfo->img_fmt;
 	),
-	TP_printk("vnc_id %u W %u H %u fmt %x",
-		  __entry->vnc_id, __entry->width, __entry->height,
+	TP_printk("W %u H %u fmt %x",
+		  __entry->width, __entry->height,
 		  __entry->format)
 );
 

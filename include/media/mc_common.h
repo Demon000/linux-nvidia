@@ -210,8 +210,6 @@ struct tegra_channel {
 	int requested_kbyteps;
 	unsigned long requested_hz;
 
-	struct vi_notify_channel *vnc[TEGRA_CSI_BLOCKS];
-	int vnc_id[TEGRA_CSI_BLOCKS];
 	int grp_id;
 
 	struct v4l2_async_notifier notifier;
