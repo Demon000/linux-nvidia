@@ -218,10 +218,6 @@ static int isp5_probe(struct platform_device *pdev)
 	if (err)
 		goto put_thi;
 
-	err = nvhost_module_init(pdev);
-	if (err)
-		goto put_thi;
-
 	err = nvhost_client_device_init(pdev);
 	if (err)
 		goto put_thi;

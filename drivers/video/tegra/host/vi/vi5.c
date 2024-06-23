@@ -232,10 +232,6 @@ static int vi5_probe(struct platform_device *pdev)
 	if (err)
 		goto put_vi;
 
-	err = nvhost_module_init(pdev);
-	if (err)
-		goto put_vi;
-
 	err = vi5_priv_late_probe(pdev);
 	if (err)
 		goto put_vi;

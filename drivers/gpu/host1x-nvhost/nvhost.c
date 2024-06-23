@@ -371,11 +371,4 @@ int nvhost_module_init(struct platform_device *pdev)
 }
 EXPORT_SYMBOL(nvhost_module_init);
 
-static struct platform_driver nvhost_driver = {
-	.driver = {
-		.name = "host1x-nvhost",
-	},
-};
-
-module_platform_driver(nvhost_driver);
 MODULE_LICENSE("GPL v2");
