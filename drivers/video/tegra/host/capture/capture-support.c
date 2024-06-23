@@ -79,6 +79,7 @@ EXPORT_SYMBOL_GPL(capture_get_syncpt_gos_backing);
 
 static int capture_support_probe(struct platform_device *pdev)
 {
+	struct reset_control *reset_control;
 	struct device *dev = &pdev->dev;
 	struct nvhost_device_data *info;
 	int err = 0;
@@ -91,9 +92,21 @@ static int capture_support_probe(struct platform_device *pdev)
 
 	(void) dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(39));
 
-	err = nvhost_module_init(pdev);
-	if (err)
-		goto error;
+	reset_control = devm_reset_control_get_exclusive_released(
+					&pdev->dev, NULL);
+	if (IS_ERR(reset_control)) {
+		dev_err(&pdev->dev, "failed to get reset\n");
+		return PTR_ERR(reset_control);
+	}
+
+	err = reset_control_acquire(reset_control);
+	if (err < 0) {
+		dev_err(&pdev->dev, "failed to acquire reset: %d\n", err);
+		return err;
+	}
+
+	reset_control_reset(reset_control);
+	reset_control_release(reset_control);
 
 	err = nvhost_syncpt_unit_interface_init(pdev);
 	if (err)

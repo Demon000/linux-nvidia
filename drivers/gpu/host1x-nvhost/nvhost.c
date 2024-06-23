@@ -332,29 +332,4 @@ dma_addr_t nvhost_syncpt_address(struct platform_device *pdev, u32 id)
 }
 EXPORT_SYMBOL(nvhost_syncpt_address);
 
-int nvhost_module_init(struct platform_device *pdev)
-{
-	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
-	int err;
-
-	pdata->reset_control = devm_reset_control_get_exclusive_released(
-					&pdev->dev, NULL);
-	if (IS_ERR(pdata->reset_control)) {
-		dev_err(&pdev->dev, "failed to get reset\n");
-		return PTR_ERR(pdata->reset_control);
-	}
-
-	reset_control_acquire(pdata->reset_control);
-	if (err < 0) {
-		dev_err(&pdev->dev, "failed to acquire reset: %d\n", err);
-		return err;
-	}
-
-	reset_control_reset(pdata->reset_control);
-	reset_control_release(pdata->reset_control);
-
-	return 0;
-}
-EXPORT_SYMBOL(nvhost_module_init);
-
 MODULE_LICENSE("GPL v2");

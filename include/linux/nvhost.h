@@ -23,16 +23,10 @@ struct nvhost_device_data {
 
 	/* Information related to engine-side synchronization */
 	void *syncpt_unit_interface;
-
-	/* reset control for this device */
-	struct reset_control *reset_control;
 };
 
 /* public api to return platform_device ptr to the default host1x instance */
 struct platform_device *nvhost_get_default_device(void);
-
-/* common runtime pm and power domain APIs */
-int nvhost_module_init(struct platform_device *ndev);
 
 /* common device management APIs */
 int nvhost_client_device_release(struct platform_device *dev);
