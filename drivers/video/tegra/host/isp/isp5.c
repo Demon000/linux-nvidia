@@ -14,12 +14,12 @@
 #include <linux/of_irq.h>
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
+#include <linux/miscdevice.h>
 #include <linux/pm_runtime.h>
 #include <linux/regulator/consumer.h>
 #include <linux/slab.h>
 #include <linux/uaccess.h>
 #include <linux/version.h>
-#include <linux/nvhost.h>
 #include <media/fusa-capture/capture-isp-channel.h>
 #include <media/tegra_camera_platform.h>
 #include <soc/tegra/camrtc-capture.h>
@@ -35,22 +35,22 @@ struct host_isp5 {
 	struct platform_device *pdev;
 	struct platform_device *isp_thi;
 	struct clk *clk;
+
+	struct miscdevice misc;
 };
 
 static int isp5_alloc_syncpt(struct platform_device *pdev,
 			const char *name,
 			uint32_t *syncpt_id)
 {
-	struct nvhost_device_data *info = platform_get_drvdata(pdev);
-	struct host_isp5 *isp5 = info->private_data;
+	struct host_isp5 *isp5 = platform_get_drvdata(pdev);
 
 	return capture_alloc_syncpt(isp5->isp_thi, name, syncpt_id);
 }
 
 static void isp5_release_syncpt(struct platform_device *pdev, uint32_t id)
 {
-	struct nvhost_device_data *info = platform_get_drvdata(pdev);
-	struct host_isp5 *isp5 = info->private_data;
+	struct host_isp5 *isp5 = platform_get_drvdata(pdev);
 
 	capture_release_syncpt(isp5->isp_thi, id);
 }
@@ -59,8 +59,7 @@ static int isp5_get_syncpt_gos_backing(struct platform_device *pdev,
 			uint32_t id,
 			dma_addr_t *syncpt_addr)
 {
-	struct nvhost_device_data *info = platform_get_drvdata(pdev);
-	struct host_isp5 *isp5 = info->private_data;
+	struct host_isp5 *isp5 = platform_get_drvdata(pdev);
 
 	return capture_get_syncpt_gos_backing(isp5->isp_thi, id,
 				syncpt_addr);
@@ -75,17 +74,10 @@ static struct isp_channel_drv_ops isp5_channel_drv_ops = {
 static int isp5_priv_early_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
-	struct nvhost_device_data *info;
 	struct device_node *thi_np;
 	struct platform_device *thi = NULL;
 	struct host_isp5 *isp5;
 	int err = 0;
-
-	info = (void *)of_device_get_match_data(dev);
-	if (unlikely(info == NULL)) {
-		dev_WARN(dev, "no platform data\n");
-		return -ENODATA;
-	}
 
 	thi_np = of_parse_phandle(dev->of_node, "nvidia,isp-falcon-device", 0);
 	if (thi_np == NULL) {
@@ -114,8 +106,7 @@ static int isp5_priv_early_probe(struct platform_device *pdev)
 
 	isp5->isp_thi = thi;
 	isp5->pdev = pdev;
-	platform_set_drvdata(pdev, info);
-	info->private_data = isp5;
+	platform_set_drvdata(pdev, isp5);
 
 	/* A bit was stolen */
 	(void) dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(39));
@@ -128,16 +119,15 @@ static int isp5_priv_early_probe(struct platform_device *pdev)
 	return 0;
 
 error:
-	info->private_data = NULL;
 	if (err != -EPROBE_DEFER)
 		dev_err(&pdev->dev, "probe failed: %d\n", err);
+
 	return err;
 }
 
 static int isp5_set_rate(struct tegra_camera_dev_info *cdev_info, unsigned long rate)
 {
-	struct nvhost_device_data *info = platform_get_drvdata(cdev_info->pdev);
-	struct host_isp5 *isp5 = info->private_data;
+	struct host_isp5 *isp5 = platform_get_drvdata(cdev_info->pdev);
 
 	return clk_set_rate(isp5->clk, rate);
 }
@@ -149,8 +139,7 @@ static struct tegra_camera_dev_ops isp5_cdev_ops = {
 static int isp5_priv_late_probe(struct platform_device *pdev)
 {
 	struct tegra_camera_dev_info isp_info;
-	struct nvhost_device_data *info = platform_get_drvdata(pdev);
-	struct host_isp5 *isp5 = info->private_data;
+	struct host_isp5 *isp5 = platform_get_drvdata(pdev);
 	int err;
 
 	memset(&isp_info, 0, sizeof(isp_info));
@@ -162,60 +151,16 @@ static int isp5_priv_late_probe(struct platform_device *pdev)
 
 	err = tegra_camera_device_register(&isp_info, isp5);
 	if (err)
-		goto device_release;
+		return err;
 
 	err = isp_channel_drv_register(pdev, &isp5_channel_drv_ops);
 	if (err)
-		goto device_release;
+		return err;
 
 	return 0;
-
-device_release:
-	nvhost_client_device_release(pdev);
-
-	return err;
 }
 
-static int isp5_probe(struct platform_device *pdev)
-{
-	struct device *dev = &pdev->dev;
-	struct nvhost_device_data *pdata;
-	struct host_isp5 *isp5;
-	int err = 0;
-
-	err = isp5_priv_early_probe(pdev);
-	if (err)
-		goto error;
-
-	pdata = platform_get_drvdata(pdev);
-	isp5 = pdata->private_data;
-
-	isp5->clk = devm_clk_get(dev, NULL);
-	if (IS_ERR(isp5->clk)) {
-		dev_err(&pdev->dev, "failed to get clock\n");
-		return PTR_ERR(isp5->clk);
-	}
-
-	err = nvhost_client_device_init(pdev);
-	if (err)
-		goto put_thi;
-
-	err = isp5_priv_late_probe(pdev);
-	if (err)
-		goto put_thi;
-
-	return 0;
-
-put_thi:
-	platform_device_put(isp5->isp_thi);
-error:
-	if (err != -EPROBE_DEFER)
-		dev_err(&pdev->dev, "probe failed: %d\n", err);
-	return err;
-}
-
-static long isp_ioctl(struct file *file,
-		unsigned int cmd, unsigned long arg)
+static long isp_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	return 0;
 }
@@ -240,28 +185,69 @@ const struct file_operations tegra194_isp5_ctrl_ops = {
 	.release = isp_release,
 };
 
+static int isp5_probe(struct platform_device *pdev)
+{
+	struct device *dev = &pdev->dev;
+	struct host_isp5 *isp5;
+	int err = 0;
+
+	err = isp5_priv_early_probe(pdev);
+	if (err)
+		goto error;
+
+	isp5 = platform_get_drvdata(pdev);
+
+	isp5->clk = devm_clk_get(dev, NULL);
+	if (IS_ERR(isp5->clk)) {
+		dev_err(&pdev->dev, "failed to get clock\n");
+		return PTR_ERR(isp5->clk);
+	}
+
+	isp5->misc = (struct miscdevice) {
+		.minor	= MISC_DYNAMIC_MINOR,
+		.name	= "nvhost-ctrl-isp",
+		.fops	= &tegra194_isp5_ctrl_ops,
+		.mode	= 0666,
+	};
+
+	err = misc_register(&isp5->misc);
+	if (err) {
+		dev_err(dev, "failed to register misc device: %d\n", err);
+		goto put_thi;
+	}
+
+	err = isp5_priv_late_probe(pdev);
+	if (err)
+		goto put_thi;
+
+	return 0;
+
+put_thi:
+	platform_device_put(isp5->isp_thi);
+error:
+	if (err != -EPROBE_DEFER)
+		dev_err(&pdev->dev, "probe failed: %d\n", err);
+	return err;
+}
+
 static int isp5_remove(struct platform_device *pdev)
 {
-	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
-	struct host_isp5 *isp5 = (struct host_isp5 *)pdata->private_data;
+	struct host_isp5 *isp5 = platform_get_drvdata(pdev);
 
 	tegra_camera_device_unregister(isp5);
 
 	isp_channel_drv_unregister(&pdev->dev);
+
+	misc_deregister(&isp5->misc);
 
 	platform_device_put(isp5->isp_thi);
 
 	return 0;
 }
 
-struct nvhost_device_data t19_isp5_info = {
-	.ctrl_ops		= &tegra194_isp5_ctrl_ops,
-};
-
 static const struct of_device_id tegra_isp5_of_match[] = {
 	{
 		.compatible = "nvidia,tegra194-isp",
-		.data = &t19_isp5_info,
 	},
 	{ },
 };

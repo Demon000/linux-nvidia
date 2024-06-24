@@ -13,14 +13,6 @@
 struct nvhost_device_data {
 	void *private_data;		/* private platform data */
 
-	dev_t cdev_region;
-
-	/* device node for ctrl block */
-	struct class *nvhost_class;
-	struct device *ctrl_node;
-	struct cdev ctrl_cdev;
-	const struct file_operations *ctrl_ops;    /* ctrl ops for the module */
-
 	/* Information related to engine-side synchronization */
 	void *syncpt_unit_interface;
 };
