@@ -18,7 +18,6 @@
 
 #include <asm/arch_timer.h>
 #include <uapi/linux/nvhost_events.h>
-#include <camera/nvcamera_log.h>
 #include "soc/tegra/camrtc-capture.h"
 #include "soc/tegra/camrtc-capture-messages.h"
 #include <media/fusa-capture/capture-vi-channel.h>
@@ -612,10 +611,6 @@ int vi_capture_setup(
 		}
 	}
 
-	nv_camera_log(chan->ndev,
-		__arch_counter_get_cntvct(),
-		NVHOST_CAMERA_VI_CAPTURE_SETUP);
-
 	if (setup->mem == 0 && setup->iova == 0) {
 		dev_err(chan->dev,
 			"%s: request buffer is NULL\n", __func__);
@@ -813,10 +808,6 @@ int vi_capture_reset(
 	struct CAPTURE_CONTROL_MSG *resp_msg = &capture->control_resp_msg;
 	int err = 0;
 
-	nv_camera_log(chan->ndev,
-		__arch_counter_get_cntvct(),
-		NVHOST_CAMERA_VI_CAPTURE_RESET);
-
 	if (capture == NULL) {
 		dev_err(chan->dev,
 			 "%s: vi capture uninitialized\n", __func__);
@@ -883,10 +874,6 @@ int vi_capture_release(
 	int err = 0;
 	int ret = 0;
 	int i = 0;
-
-	nv_camera_log(chan->ndev,
-		__arch_counter_get_cntvct(),
-		NVHOST_CAMERA_VI_CAPTURE_RELEASE);
 
 	if (capture == NULL) {
 		dev_err(chan->dev,
@@ -1177,10 +1164,6 @@ int vi_capture_control_message_from_user(
 		return -ENODEV;
 	}
 
-	nv_camera_log(chan->ndev,
-		__arch_counter_get_cntvct(),
-		NVHOST_CAMERA_VI_CAPTURE_SET_CONFIG);
-
 	capture = chan->capture_data;
 
 	if (capture == NULL) {
@@ -1235,10 +1218,6 @@ int vi_capture_control_message(
 		return -ENODEV;
 	}
 
-	nv_camera_log(chan->ndev,
-		__arch_counter_get_cntvct(),
-		NVHOST_CAMERA_VI_CAPTURE_SET_CONFIG);
-
 	capture = chan->capture_data;
 
 	if (capture == NULL) {
@@ -1276,10 +1255,6 @@ int vi_capture_get_info(
 {
 	struct vi_capture *capture = chan->capture_data;
 	int err;
-
-	nv_camera_log(chan->ndev,
-		__arch_counter_get_cntvct(),
-		NVHOST_CAMERA_VI_CAPTURE_GET_INFO);
 
 	if (capture == NULL) {
 		dev_err(chan->dev,
@@ -1329,10 +1304,6 @@ int vi_capture_request(
 	struct CAPTURE_MSG capture_desc;
 	int err = 0;
 
-	nv_camera_log(chan->ndev,
-		__arch_counter_get_cntvct(),
-		NVHOST_CAMERA_VI_CAPTURE_REQUEST);
-
 	if (capture == NULL) {
 		dev_err(chan->dev,
 			"%s: vi capture uninitialized\n", __func__);
@@ -1358,13 +1329,6 @@ int vi_capture_request(
 	capture_desc.header.channel_id = capture->channel_id;
 	capture_desc.capture_request_req.buffer_index = req->buffer_index;
 
-	nv_camera_log_vi_submit(
-			chan->ndev,
-			capture->progress_sp.id,
-			capture->progress_sp.threshold,
-			capture_desc.header.channel_id,
-			__arch_counter_get_cntvct());
-
 	dev_dbg(chan->dev, "%s: sending chan_id %u msg_id %u buf:%u\n",
 			__func__, capture_desc.header.channel_id,
 			capture_desc.header.msg_id, req->buffer_index);
@@ -1388,10 +1352,6 @@ int vi_capture_status(
 {
 	struct vi_capture *capture = chan->capture_data;
 	int ret = 0;
-
-	nv_camera_log(chan->ndev,
-		__arch_counter_get_cntvct(),
-		NVHOST_CAMERA_VI_CAPTURE_STATUS);
 
 	if (capture == NULL) {
 		dev_err(chan->dev,
@@ -1438,10 +1398,6 @@ int vi_capture_set_progress_status_notifier(
 {
 	int err = 0;
 	struct vi_capture *capture = chan->capture_data;
-
-	nv_camera_log(chan->ndev,
-		__arch_counter_get_cntvct(),
-		NVHOST_CAMERA_VI_CAPTURE_SET_PROGRESS_STATUS);
 
 	if (req->mem == 0 ||
 		req->buffer_depth == 0) {

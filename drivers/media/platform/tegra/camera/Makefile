@@ -13,7 +13,6 @@ tegra-camera-objs += camera_common.o
 tegra-camera-objs += camera_gpio.o
 tegra-camera-objs += sensor_common.o
 tegra-camera-objs += camera_version_utils.o
-tegra-camera-objs += nvcamera_log.o
 tegra-camera-objs += tegracam_v4l2.o
 tegra-camera-objs += tegracam_core.o
 tegra-camera-objs += tegracam_ctrls.o

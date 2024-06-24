@@ -19,7 +19,6 @@
 #include <asm/arch_timer.h>
 #include <soc/tegra/fuse.h>
 
-#include <camera/nvcamera_log.h>
 #include <uapi/linux/nvhost_events.h>
 #include "soc/tegra/camrtc-capture.h"
 #include "soc/tegra/camrtc-capture-messages.h"
@@ -967,10 +966,6 @@ int isp_capture_setup(
 		&control_msg.channel_isp_setup_req.channel_config;
 	int err = 0;
 
-	nv_camera_log(chan->ndev,
-		__arch_counter_get_cntvct(),
-		NVHOST_CAMERA_ISP_CAPTURE_SETUP);
-
 	if (capture == NULL) {
 		dev_err(chan->isp_dev,
 			 "%s: isp capture uninitialized\n", __func__);
@@ -1218,10 +1213,6 @@ int isp_capture_release(
 	int i;
 	int err = 0;
 
-	nv_camera_log(chan->ndev,
-		__arch_counter_get_cntvct(),
-		NVHOST_CAMERA_ISP_CAPTURE_RELEASE);
-
 	if (capture == NULL) {
 		dev_err(chan->isp_dev,
 			 "%s: isp capture uninitialized\n", __func__);
@@ -1329,10 +1320,6 @@ int isp_capture_reset(
 	int i;
 	int err = 0;
 
-	nv_camera_log(chan->ndev,
-		__arch_counter_get_cntvct(),
-		NVHOST_CAMERA_ISP_CAPTURE_RESET);
-
 	if (capture == NULL) {
 		dev_err(chan->isp_dev,
 			 "%s: isp capture uninitialized\n", __func__);
@@ -1413,10 +1400,6 @@ int isp_capture_get_info(
 {
 	struct isp_capture *capture = chan->capture_data;
 	int err;
-
-	nv_camera_log(chan->ndev,
-		__arch_counter_get_cntvct(),
-		NVHOST_CAMERA_ISP_CAPTURE_GET_INFO);
 
 	if (capture == NULL) {
 		dev_err(chan->isp_dev,
@@ -1665,13 +1648,6 @@ int isp_capture_request(
 		goto fail;
 	}
 
-	nv_camera_log_isp_submit(
-			chan->ndev,
-			capture->progress_sp.id,
-			capture->progress_sp.threshold,
-			capture_msg.header.channel_id,
-			__arch_counter_get_cntvct());
-
 	dev_dbg(chan->isp_dev, "%s: sending chan_id %u msg_id %u buf:%u\n",
 			__func__, capture_msg.header.channel_id,
 			capture_msg.header.msg_id, req->buffer_index);
@@ -1697,10 +1673,6 @@ int isp_capture_status(
 {
 	struct isp_capture *capture = chan->capture_data;
 	int err = 0;
-
-	nv_camera_log(chan->ndev,
-		__arch_counter_get_cntvct(),
-		NVHOST_CAMERA_ISP_CAPTURE_STATUS);
 
 	if (capture == NULL) {
 		dev_err(chan->isp_dev,
@@ -1752,10 +1724,6 @@ int isp_capture_program_request(
 	struct CAPTURE_MSG capture_msg;
 	int err = 0;
 
-	nv_camera_log(chan->ndev,
-		__arch_counter_get_cntvct(),
-		NVHOST_CAMERA_ISP_CAPTURE_PROGRAM_REQUEST);
-
 	err = isp_capture_program_prepare(chan, req);
 	if (err < 0) {
 		/* no cleanup needed */
@@ -1788,10 +1756,6 @@ int isp_capture_program_status(
 {
 	struct isp_capture *capture = chan->capture_data;
 	int err = 0;
-
-	nv_camera_log(chan->ndev,
-		__arch_counter_get_cntvct(),
-		NVHOST_CAMERA_ISP_CAPTURE_PROGRAM_STATUS);
 
 	if (capture == NULL) {
 		dev_err(chan->isp_dev,
@@ -1832,10 +1796,6 @@ int isp_capture_request_ex(
 {
 	int err;
 
-	nv_camera_log(chan->ndev,
-		__arch_counter_get_cntvct(),
-		NVHOST_CAMERA_ISP_CAPTURE_REQUEST_EX);
-
 	if (req->program_req.buffer_index == U32_MAX) {
 		/* forward to process request */
 		return isp_capture_request(chan, &req->capture_req);
@@ -1865,10 +1825,6 @@ int isp_capture_set_progress_status_notifier(
 {
 	int err = 0;
 	struct isp_capture *capture = chan->capture_data;
-
-	nv_camera_log(chan->ndev,
-		__arch_counter_get_cntvct(),
-		NVHOST_CAMERA_ISP_CAPTURE_SET_PROGRESS_STATUS);
 
 	if (req->mem == 0 ||
 		req->process_buffer_depth == 0) {
