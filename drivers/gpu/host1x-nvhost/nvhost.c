@@ -18,16 +18,12 @@
 #include <linux/slab.h>
 #include <linux/version.h>
 
-#include "falcon.h"
-
 #define TEGRA194_SYNCPT_PAGE_SIZE 0x1000
 #define TEGRA194_SYNCPT_SHIM_BASE 0x60000000
 #define TEGRA194_SYNCPT_SHIM_SIZE 0x00400000
 #define TEGRA234_SYNCPT_PAGE_SIZE 0x10000
 #define TEGRA234_SYNCPT_SHIM_BASE 0x60000000
 #define TEGRA234_SYNCPT_SHIM_SIZE 0x04000000
-
-#define NVHOST_NUM_CDEV 1
 
 struct nvhost_syncpt_interface {
 	dma_addr_t base;
@@ -216,6 +212,7 @@ int nvhost_syncpt_unit_interface_init(struct platform_device *pdev)
 
 	/* If IOMMU is enabled, map it into the device memory */
 	if (iommu_get_domain_for_dev(&pdev->dev)) {
+		dev_err(&pdev->dev, "%s: dma_map_resource\n", __func__);
 		syncpt_if->base = dma_map_resource(&pdev->dev, base,
 						   syncpt_if->size,
 						   DMA_BIDIRECTIONAL,
@@ -223,6 +220,7 @@ int nvhost_syncpt_unit_interface_init(struct platform_device *pdev)
 		if (dma_mapping_error(&pdev->dev, syncpt_if->base))
 			return -ENOMEM;
 	} else {
+		dev_err(&pdev->dev, "%s: direct\n", __func__);
 		syncpt_if->base = base;
 	}
 

@@ -13,6 +13,9 @@
 #include "soc/tegra/camrtc-capture-messages.h"
 #include <media/fusa-capture/capture-vi.h>
 
+#undef pr_debug
+#define pr_debug pr_err
+
 static inline u32 csi5_port_to_stream(u32 csi_port)
 {
 	return (csi_port < NVCSI_PORT_E) ?
