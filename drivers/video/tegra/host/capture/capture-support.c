@@ -10,15 +10,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/export.h>
 #include <linux/module.h>
-#include <linux/of.h>
-#include <linux/of_device.h>
-#include <linux/of_platform.h>
 #include <linux/platform_device.h>
-#include <linux/pm_runtime.h>
-#include <linux/reset.h>
-#include <soc/tegra/camrtc-capture.h>
-#include <linux/version.h>
-#include <soc/tegra/fuse.h>
 #include <linux/nvhost.h>
 
 int capture_alloc_syncpt(struct platform_device *pdev,
@@ -78,99 +70,4 @@ int capture_get_syncpt_gos_backing(struct platform_device *pdev,
 }
 EXPORT_SYMBOL_GPL(capture_get_syncpt_gos_backing);
 
-static int capture_support_probe(struct platform_device *pdev)
-{
-	struct reset_control *reset_control;
-	struct device *dev = &pdev->dev;
-	struct nvhost_device_data *info;
-	int err = 0;
-
-	info = (void *)of_device_get_match_data(dev);
-	if (WARN_ON(info == NULL))
-		return -ENODATA;
-
-	platform_set_drvdata(pdev, info);
-
-	(void) dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(39));
-
-	reset_control = devm_reset_control_get_exclusive_released(
-					&pdev->dev, NULL);
-	if (IS_ERR(reset_control)) {
-		dev_err(&pdev->dev, "failed to get reset\n");
-		return PTR_ERR(reset_control);
-	}
-
-	err = reset_control_acquire(reset_control);
-	if (err < 0) {
-		dev_err(&pdev->dev, "failed to acquire reset: %d\n", err);
-		return err;
-	}
-
-	reset_control_reset(reset_control);
-	reset_control_release(reset_control);
-
-	err = nvhost_syncpt_unit_interface_init(pdev);
-	if (err)
-		goto error;
-
-	return 0;
-
-error:
-	if (err != -EPROBE_DEFER)
-		dev_err(dev, "probe failed: %d\n", err);
-
-	return err;
-}
-
-static int capture_support_remove(struct platform_device *pdev)
-{
-	return 0;
-}
-
-struct nvhost_device_data t19_isp_thi_info = {
-};
-
-struct nvhost_device_data t19_vi_thi_info = {
-};
-
-struct nvhost_device_data t23x_vi0_thi_info = {
-};
-
-struct nvhost_device_data t23x_vi1_thi_info = {
-};
-
-static const struct of_device_id capture_support_match[] = {
-	{
-		.compatible = "nvidia,tegra194-isp-thi",
-		.data = &t19_isp_thi_info,
-	},
-	{
-		.compatible = "nvidia,tegra194-vi-thi",
-		.data = &t19_vi_thi_info,
-	},
-	{
-		.name = "vi0-thi",
-		.compatible = "nvidia,tegra234-vi-thi",
-		.data = &t23x_vi0_thi_info,
-	},
-	{
-		.name = "vi1-thi",
-		.compatible = "nvidia,tegra234-vi-thi",
-		.data = &t23x_vi1_thi_info,
-	},
-	{ },
-};
-MODULE_DEVICE_TABLE(of, capture_support_match);
-
-static struct platform_driver capture_support_driver = {
-	.probe = capture_support_probe,
-	.remove = capture_support_remove,
-	.driver = {
-		/* Only suitable name for dummy falcon driver */
-		.name = "scare-pigeon",
-		.of_match_table = capture_support_match,
-	},
-};
-
-module_platform_driver(capture_support_driver);
 MODULE_LICENSE("GPL");
