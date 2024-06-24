@@ -4,7 +4,6 @@
 #ifndef __LINUX_NVHOST_H
 #define __LINUX_NVHOST_H
 
-#include <linux/cdev.h>
 #include <linux/device.h>
 #include <linux/types.h>
 #include <linux/host1x.h>
