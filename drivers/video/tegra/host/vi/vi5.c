@@ -1,18 +1,34 @@
 // SPDX-License-Identifier: GPL-2.0-only
 // SPDX-FileCopyrightText: Copyright (c) 2017-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+/*
+ * VI5 driver
+ */
 
-#include <linux/clk.h>
 #include <linux/device.h>
 #include <linux/dma-buf.h>
 #include <linux/dma-mapping.h>
+#include <linux/export.h>
+#include <linux/fs.h>
 #include <linux/interconnect.h>
 #include <linux/module.h>
+#include <linux/of.h>
+#include <linux/of_device.h>
+#include <linux/of_graph.h>
+#include <linux/of_irq.h>
 #include <linux/of_platform.h>
+#include <linux/platform/tegra/emc_bwmgr.h>
+#include <linux/platform/tegra/latency_allowance.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
-#include <linux/reset.h>
+#include <linux/regulator/consumer.h>
+#include <linux/slab.h>
+#include <linux/uaccess.h>
+#include <linux/version.h>
 #include <media/fusa-capture/capture-vi-channel.h>
+#include <media/mc_common.h>
 #include <media/tegra_camera_platform.h>
+#include <soc/tegra/camrtc-capture.h>
+#include <soc/tegra/fuse.h>
 
 #include "capture/capture-support.h"
 
@@ -25,33 +41,84 @@
 #define VI_CLASS_ID 0x30
 
 struct host_vi5 {
+	struct platform_device *pdev;
+	struct platform_device *vi_thi;
 	struct icc_path *icc_write;
 	struct clk *clk;
 };
 
+static int vi5_alloc_syncpt(struct platform_device *pdev,
+			const char *name,
+			uint32_t *syncpt_id)
+{
+	struct host_vi5 *vi5 = platform_get_drvdata(pdev);
+
+	return capture_alloc_syncpt(vi5->vi_thi, name, syncpt_id);
+}
+
+static void vi5_release_syncpt(struct platform_device *pdev, uint32_t id)
+{
+	struct host_vi5 *vi5 = platform_get_drvdata(pdev);
+
+	capture_release_syncpt(vi5->vi_thi, id);
+}
+
+static int vi5_get_syncpt_gos_backing(struct platform_device *pdev,
+			uint32_t id,
+			dma_addr_t *syncpt_addr)
+{
+	struct host_vi5 *vi5 = platform_get_drvdata(pdev);
+
+	return capture_get_syncpt_gos_backing(vi5->vi_thi, id,
+				syncpt_addr);
+}
+
 static struct vi_channel_drv_ops vi5_channel_drv_ops = {
-	.alloc_syncpt = capture_alloc_syncpt,
-	.release_syncpt = capture_release_syncpt,
-	.get_syncpt_gos_backing = capture_get_syncpt_gos_backing,
+	.alloc_syncpt = vi5_alloc_syncpt,
+	.release_syncpt = vi5_release_syncpt,
+	.get_syncpt_gos_backing = vi5_get_syncpt_gos_backing,
 };
 
 static int vi5_priv_early_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
+	struct device_node *thi_np;
+	struct platform_device *thi = NULL;
 	struct host_vi5 *vi5;
 	int err = 0;
 
-	vi5 = devm_kzalloc(dev, sizeof(*vi5), GFP_KERNEL);
-	if (!vi5)
-		return -ENOMEM;
+	thi_np = of_parse_phandle(dev->of_node, "nvidia,vi-falcon-device", 0);
+	if (thi_np == NULL) {
+		dev_WARN(dev, "missing %s handle\n", "nvidia,vi-falcon-device");
+		return -ENODEV;
+	}
 
-	platform_set_drvdata(pdev, vi5);
+	thi = of_find_device_by_node(thi_np);
+	of_node_put(thi_np);
+
+	if (thi == NULL)
+		return -ENODEV;
+
+	if (thi->dev.driver == NULL) {
+		err = -EPROBE_DEFER;
+		goto put_vi;
+	}
 
 	err = vi_channel_drv_fops_register(&vi5_channel_drv_ops);
 	if (err) {
 		dev_warn(&pdev->dev, "syncpt fops register failed, defer probe\n");
-		return err;
+		goto put_vi;
 	}
+
+	vi5 = (struct host_vi5 *) devm_kzalloc(dev, sizeof(*vi5), GFP_KERNEL);
+	if (!vi5) {
+		err = -ENOMEM;
+		goto put_vi;
+	}
+
+	vi5->vi_thi = thi;
+	vi5->pdev = pdev;
+	platform_set_drvdata(pdev, vi5);
 
 	(void) dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(39));
 
@@ -61,6 +128,13 @@ static int vi5_priv_early_probe(struct platform_device *pdev)
 #endif
 
 	return 0;
+
+put_vi:
+	platform_device_put(thi);
+	if (err != -EPROBE_DEFER)
+		dev_err(&pdev->dev, "probe failed: %d\n", err);
+
+	return err;
 }
 
 static int vi5_set_rate(struct tegra_camera_dev_info *cdev_info, unsigned long rate)
@@ -89,42 +163,32 @@ static int vi5_priv_late_probe(struct platform_device *pdev)
 
 	err = tegra_camera_device_register(&vi_info, vi5);
 	if (err)
-		return err;
+		goto device_release;
 
 	return 0;
+
+device_release:
+
+	return err;
 }
 
 static int vi5_probe(struct platform_device *pdev)
 {
-	struct reset_control *reset_control;
 	struct device *dev = &pdev->dev;
 	struct host_vi5 *vi5;
 	int err;
 
-	reset_control = devm_reset_control_get_exclusive_released(dev, NULL);
-	if (IS_ERR(reset_control)) {
-		dev_err(dev, "failed to get reset\n");
-		return PTR_ERR(reset_control);
-	}
-
-	err = reset_control_acquire(reset_control);
-	if (err) {
-		dev_err(dev, "failed to acquire reset: %d\n", err);
-		return err;
-	}
-
-	reset_control_reset(reset_control);
-	reset_control_release(reset_control);
+	dev_dbg(dev, "%s: probe %s\n", __func__, pdev->name);
 
 	err = vi5_priv_early_probe(pdev);
 	if (err)
-		return err;
+		goto error;
 
 	vi5 = platform_get_drvdata(pdev);
 
 	vi5->clk = devm_clk_get(dev, NULL);
 	if (IS_ERR(vi5->clk)) {
-		dev_err(dev, "failed to get clock\n");
+		dev_err(&pdev->dev, "failed to get clock\n");
 		return PTR_ERR(vi5->clk);
 	}
 
@@ -136,9 +200,16 @@ static int vi5_probe(struct platform_device *pdev)
 
 	err = vi5_priv_late_probe(pdev);
 	if (err)
-		return err;
+		goto put_vi;
 
 	return 0;
+
+put_vi:
+	platform_device_put(vi5->vi_thi);
+	if (err != -EPROBE_DEFER)
+		dev_err(dev, "probe failed: %d\n", err);
+error:
+	return err;
 }
 
 static int vi5_remove(struct platform_device *pdev)
@@ -146,6 +217,8 @@ static int vi5_remove(struct platform_device *pdev)
 	struct host_vi5 *vi5 = platform_get_drvdata(pdev);
 
 	tegra_camera_device_unregister(vi5);
+
+	platform_device_put(vi5->vi_thi);
 
 	return 0;
 }
