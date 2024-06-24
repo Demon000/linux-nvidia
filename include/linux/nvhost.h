@@ -10,17 +10,8 @@
 #include <linux/host1x.h>
 #include <linux/platform_device.h>
 
-struct nvhost_device_data {
-	/* Information related to engine-side synchronization */
-	void *syncpt_unit_interface;
-};
-
 /* public api to return platform_device ptr to the default host1x instance */
 struct platform_device *nvhost_get_default_device(void);
-
-/* common device management APIs */
-int nvhost_client_device_release(struct platform_device *dev);
-int nvhost_client_device_init(struct platform_device *dev);
 
 /* public host1x sync-point management APIs */
 u32 nvhost_get_syncpt_client_managed(struct platform_device *pdev,

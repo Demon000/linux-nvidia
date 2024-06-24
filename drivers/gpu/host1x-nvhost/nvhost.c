@@ -25,12 +25,6 @@
 #define TEGRA234_SYNCPT_SHIM_BASE 0x60000000
 #define TEGRA234_SYNCPT_SHIM_SIZE 0x04000000
 
-struct nvhost_syncpt_interface {
-	dma_addr_t base;
-	size_t size;
-	uint32_t page_size;
-};
-
 static const struct of_device_id host1x_match[] = {
 	{ .compatible = "nvidia,tegra194-host1x", },
 	{ .compatible = "nvidia,tegra234-host1x", },
@@ -185,61 +179,33 @@ int nvhost_syncpt_unit_interface_get_aperture(struct platform_device *pdev,
 }
 EXPORT_SYMBOL(nvhost_syncpt_unit_interface_get_aperture);
 
-int nvhost_syncpt_unit_interface_init(struct platform_device *pdev)
+dma_addr_t nvhost_syncpt_address(struct platform_device *pdev, u32 id)
 {
-	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
-	struct nvhost_syncpt_interface *syncpt_if;
-	u64 base;
+	struct platform_device *host1x_pdev;
+	uint32_t page_size;
+	dma_addr_t base;
+	size_t size;
 	int err;
 
-	syncpt_if = devm_kzalloc(&pdev->dev, sizeof(*syncpt_if), GFP_KERNEL);
-	if (!syncpt_if)
-		return -ENOMEM;
+	host1x_pdev = nvhost_get_default_device();
 
-	err = nvhost_syncpt_get_aperture(pdev->dev.parent->of_node, &base,
-					 &syncpt_if->size);
+	err = nvhost_syncpt_get_aperture(host1x_pdev->dev.of_node, &base, &size);
 	if (err < 0) {
 		dev_err(&pdev->dev, "failed to get syncpt aperture\n");
 		return err;
 	}
 
-	err = nvhost_syncpt_get_page_size(pdev->dev.parent->of_node,
-					  &syncpt_if->page_size);
+	err = nvhost_syncpt_get_page_size(host1x_pdev->dev.of_node, &page_size);
 	if (err < 0) {
 		dev_err(&pdev->dev, "failed to get syncpt page size\n");
 		return err;
 	}
 
-	/* If IOMMU is enabled, map it into the device memory */
-	if (iommu_get_domain_for_dev(&pdev->dev)) {
-		dev_err(&pdev->dev, "%s: dma_map_resource\n", __func__);
-		syncpt_if->base = dma_map_resource(&pdev->dev, base,
-						   syncpt_if->size,
-						   DMA_BIDIRECTIONAL,
-						   DMA_ATTR_SKIP_CPU_SYNC);
-		if (dma_mapping_error(&pdev->dev, syncpt_if->base))
-			return -ENOMEM;
-	} else {
-		dev_err(&pdev->dev, "%s: direct\n", __func__);
-		syncpt_if->base = base;
-	}
-
-	pdata->syncpt_unit_interface = syncpt_if;
-
 	dev_info(&pdev->dev,
 		 "syncpt_unit_base %llx syncpt_unit_size %zx size %x\n",
-		 base, syncpt_if->size, syncpt_if->page_size);
+		 base, size, page_size);
 
-	return 0;
-}
-EXPORT_SYMBOL(nvhost_syncpt_unit_interface_init);
-
-dma_addr_t nvhost_syncpt_address(struct platform_device *pdev, u32 id)
-{
-	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
-	struct nvhost_syncpt_interface *syncpt_if = pdata->syncpt_unit_interface;
-
-	return syncpt_if->base + syncpt_if->page_size * id;
+	return base + page_size * id;
 }
 EXPORT_SYMBOL(nvhost_syncpt_address);
 
