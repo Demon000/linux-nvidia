@@ -11,8 +11,6 @@
 #include <linux/platform_device.h>
 
 struct nvhost_device_data {
-	void *private_data;		/* private platform data */
-
 	/* Information related to engine-side synchronization */
 	void *syncpt_unit_interface;
 };
