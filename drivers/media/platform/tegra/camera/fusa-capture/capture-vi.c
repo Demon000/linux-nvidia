@@ -96,8 +96,6 @@ struct tegra_capture_vi_data {
 		/**< VI nvhost client platform device for each VI instance */
 	uint32_t max_vi_channels;
 		/**< Maximum number of VI capture channel devices */
-	uint32_t num_csi_vi_maps;
-		/**< Number of NVCSI to VI mapping elements in the table */
 	uint32_t vi_instance_table[MAX_NVCSI_STREAM_IDS];
 		/**< NVCSI stream-id & VI instance mapping, read from the DT */
 };
@@ -1457,7 +1455,6 @@ static int csi_vi_get_mapping_table(struct platform_device *pdev)
 		dev_err(dev, "invalid mapping table size %u\n", map_table_size);
 		return -EINVAL;
 	}
-	info->num_csi_vi_maps = map_table_size;
 
 	nmap_elems = of_property_count_strings(np, "nvidia,vi-mapping-names");
 	if (nmap_elems != ARRAY_SIZE(vi_mapping_elements))
@@ -1508,8 +1505,7 @@ static int csi_vi_get_mapping_table(struct platform_device *pdev)
 		map_table[stream_index] = vi_unit_id;
 	}
 
-	dev_dbg(dev, "%s: csi-stream to vi-instance mapping table size: %u\n",
-		__func__, info->num_csi_vi_maps);
+	dev_dbg(dev, "%s: csi-stream to vi-instance mapping table\n", __func__);
 
 	for (index = 0; index < ARRAY_SIZE(info->vi_instance_table); index++)
 		dev_dbg(dev, "%s: vi_instance_table[%d] = %d\n",
