@@ -204,8 +204,6 @@ struct tegra_vi_channel *vi_channel_open_ex(
 		return ERR_PTR(-ENOMEM);
 
 	chan->drv = chan_drv;
-	chan->vi_capture_pdev = chan_drv->vi_capture_pdev;
-
 	chan->ops = chan_drv->ops;
 
 	err = vi_capture_init(chan, is_mem_pinned);
@@ -311,6 +309,7 @@ static int pin_vi_capture_request_buffers_locked(struct tegra_vi_channel *chan,
 		struct capture_common_unpins *request_unpins)
 {
 	struct vi_capture *capture = chan->capture_data;
+	struct device *dev = chan_dev(chan);
 	struct capture_descriptor* desc = (struct capture_descriptor*)
 		(capture->requests.va +
 				req->buffer_index * capture->request_size);
@@ -331,7 +330,7 @@ static int pin_vi_capture_request_buffers_locked(struct tegra_vi_channel *chan,
 			request_unpins);
 
 		if (err) {
-			dev_err(chan->dev, "%s: get atomp iova failed\n", __func__);
+			dev_err(dev, "%s: get atomp iova failed\n", __func__);
 			goto fail;
 		}
 	}
@@ -344,7 +343,7 @@ static int pin_vi_capture_request_buffers_locked(struct tegra_vi_channel *chan,
 		request_unpins);
 
 	if (err) {
-		dev_err(chan->dev, "%s: get engine surf iova failed\n", __func__);
+		dev_err(dev, "%s: get engine surf iova failed\n", __func__);
 		goto fail;
 	}
 
@@ -375,6 +374,9 @@ static long vi_channel_ioctl(
 	unsigned long arg)
 {
 	struct tegra_vi_channel *chan = file->private_data;
+	struct platform_device *pdev = chan_pdev(chan);
+	struct device *dev = chan_dev(chan);
+	struct device *vi_dev;
 	struct vi_capture *capture = chan->capture_data;
 	void __user *ptr = (void __user *)arg;
 	int err = -EFAULT;
@@ -386,28 +388,20 @@ static long vi_channel_ioctl(
 		if (copy_from_user(&setup, ptr, sizeof(setup)))
 			break;
 
-		vi_get_nvhost_device(chan, &setup);
-		if (chan->dev == NULL) {
-			dev_err(&chan->vi_capture_pdev->dev,
-				"%s: channel device is NULL",
-				__func__);
-			return -EINVAL;
-		}
-
 		if (setup.request_size < sizeof(struct capture_descriptor)) {
-			dev_err(chan->dev,
-				"request size is too small to fit capture descriptor\n");
+			dev_err(dev, "request size is too small to fit capture descriptor\n");
 			return -EINVAL;
 		}
 
 		if (capture->buf_ctx) {
-			dev_err(chan->dev, "vi buffer setup already done");
+			dev_err(dev, "vi buffer setup already done");
 			return -EFAULT;
 		}
 
-		capture->buf_ctx = create_buffer_table(chan->dev);
+		vi_dev = vi_csi_stream_to_nvhost_device(pdev, setup.csi_stream_id);
+		capture->buf_ctx = create_buffer_table(vi_dev);
 		if (capture->buf_ctx == NULL) {
-			dev_err(chan->dev, "vi buffer setup failed");
+			dev_err(dev, "vi buffer setup failed");
 			break;
 		}
 
@@ -415,8 +409,7 @@ static long vi_channel_ioctl(
 		err = capture_common_pin_memory(capture->rtcpu_dev,
 				setup.mem, &capture->requests);
 		if (err < 0) {
-			dev_err(chan->dev,
-				"%s: memory setup failed\n", __func__);
+			dev_err(dev, "%s: memory setup failed\n", __func__);
 			destroy_buffer_table(capture->buf_ctx);
 			capture->buf_ctx = NULL;
 			return -EFAULT;
@@ -425,7 +418,7 @@ static long vi_channel_ioctl(
 		/* Check that buffer size matches queue depth */
 		if ((capture->requests.buf->size / setup.request_size) <
 				setup.queue_depth) {
-			dev_err(chan->dev,
+			dev_err(dev,
 				"%s: descriptor buffer is too small for given queue depth\n",
 				__func__);
 			capture_common_unpin_memory(&capture->requests);
@@ -437,7 +430,7 @@ static long vi_channel_ioctl(
 		setup.iova = capture->requests.iova;
 		err = vi_capture_setup(chan, &setup);
 		if (err < 0) {
-			dev_err(chan->dev, "vi capture setup failed\n");
+			dev_err(dev, "vi capture setup failed\n");
 			capture_common_unpin_memory(&capture->requests);
 			destroy_buffer_table(capture->buf_ctx);
 			capture->buf_ctx = NULL;
@@ -455,7 +448,7 @@ static long vi_channel_ioctl(
 
 		err = vi_capture_reset(chan, reset_flags);
 		if (err < 0)
-			dev_err(chan->dev, "vi capture reset failed\n");
+			dev_err(dev, "vi capture reset failed\n");
 		else {
 			for (i = 0; i < capture->queue_depth; i++)
 				vi_capture_request_unpin(chan, i);
@@ -473,7 +466,7 @@ static long vi_channel_ioctl(
 
 		err = vi_capture_release(chan, reset_flags);
 		if (err < 0)
-			dev_err(chan->dev, "vi capture release failed\n");
+			dev_err(dev, "vi capture release failed\n");
 		else {
 			for (i = 0; i < capture->queue_depth; i++)
 				vi_capture_request_unpin(chan, i);
@@ -493,7 +486,7 @@ static long vi_channel_ioctl(
 
 		err = vi_capture_get_info(chan, &info);
 		if (err < 0) {
-			dev_err(chan->dev, "vi capture get info failed\n");
+			dev_err(dev, "vi capture get info failed\n");
 			break;
 		}
 		if (copy_to_user(ptr, &info, sizeof(info)))
@@ -508,7 +501,7 @@ static long vi_channel_ioctl(
 			break;
 		err = vi_capture_control_message_from_user(chan, &msg);
 		if (err < 0)
-			dev_err(chan->dev, "vi capture set config failed\n");
+			dev_err(dev, "vi capture set config failed\n");
 		break;
 	}
 
@@ -520,12 +513,12 @@ static long vi_channel_ioctl(
 			break;
 
 		if (req.num_relocs == 0) {
-			dev_err(chan->dev, "request must have non-zero relocs\n");
+			dev_err(dev, "request must have non-zero relocs\n");
 			return -EINVAL;
 		}
 
 		if (req.buffer_index >= capture->queue_depth) {
-			dev_err(chan->dev, "buffer index is out of bound\n");
+			dev_err(dev, "buffer index is out of bound\n");
 			return -EINVAL;
 		}
 
@@ -533,7 +526,7 @@ static long vi_channel_ioctl(
 		spec_bar();
 
 		if (capture->unpins_list == NULL) {
-			dev_err(chan->dev, "Channel setup incomplete\n");
+			dev_err(dev, "Channel setup incomplete\n");
 			return -EINVAL;
 		}
 
@@ -542,7 +535,7 @@ static long vi_channel_ioctl(
 		request_unpins = &capture->unpins_list[req.buffer_index];
 
 		if (request_unpins->num_unpins != 0U) {
-			dev_err(chan->dev, "Descriptor is still in use by rtcpu\n");
+			dev_err(dev, "Descriptor is still in use by rtcpu\n");
 			mutex_unlock(&capture->unpins_list_lock);
 			return -EBUSY;
 		}
@@ -552,16 +545,14 @@ static long vi_channel_ioctl(
 		mutex_unlock(&capture->unpins_list_lock);
 
 		if (err < 0) {
-			dev_err(chan->dev,
-				"pin request failed\n");
+			dev_err(dev, "pin request failed\n");
 			vi_capture_request_unpin(chan, req.buffer_index);
 			break;
 		}
 
 		err = vi_capture_request(chan, &req);
 		if (err < 0) {
-			dev_err(chan->dev,
-				"vi capture request submit failed\n");
+			dev_err(dev, "vi capture request submit failed\n");
 			vi_capture_request_unpin(chan, req.buffer_index);
 		}
 
@@ -575,8 +566,7 @@ static long vi_channel_ioctl(
 			break;
 		err = vi_capture_status(chan, timeout_ms);
 		if (err < 0)
-			dev_err(chan->dev,
-				"vi capture get status failed\n");
+			dev_err(dev, "vi capture get status failed\n");
 		break;
 	}
 
@@ -587,8 +577,7 @@ static long vi_channel_ioctl(
 			break;
 		err = vi_capture_set_progress_status_notifier(chan, &req);
 		if (err < 0)
-			dev_err(chan->dev,
-					"setting progress status buffer failed\n");
+			dev_err(dev, "setting progress status buffer failed\n");
 		break;
 	}
 
@@ -601,12 +590,12 @@ static long vi_channel_ioctl(
 		err = capture_buffer_request(
 			capture->buf_ctx, req.mem, req.flag);
 		if (err < 0)
-			dev_err(chan->dev, "vi buffer request failed\n");
+			dev_err(dev, "vi buffer request failed\n");
 		break;
 	}
 
 	default: {
-		dev_err(chan->dev, "%s:Unknown ioctl\n", __func__);
+		dev_err(dev, "%s:Unknown ioctl\n", __func__);
 		return -ENOIOCTLCMD;
 	}
 	}
@@ -643,10 +632,7 @@ int vi_channel_drv_register(
 	if (unlikely(chan_drv == NULL))
 		return -ENOMEM;
 
-	chan_drv->dev = NULL;
-	chan_drv->ndev = NULL;
 	chan_drv->vi_capture_pdev = ndev;
-
 	chan_drv->num_channels = max_vi_channels;
 	mutex_init(&chan_drv->lock);
 
@@ -690,8 +676,6 @@ int vi_channel_drv_fops_register(
 	mutex_lock(&chdrv_lock);
 	if (chan_drv->ops == NULL)
 		chan_drv->ops = ops;
-	else
-		dev_warn(chan_drv->dev, "fops function table already registered\n");
 	mutex_unlock(&chdrv_lock);
 
 	return 0;

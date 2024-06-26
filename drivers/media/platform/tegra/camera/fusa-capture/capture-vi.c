@@ -116,7 +116,7 @@ static int vi_capture_setup_syncpt(
 	bool enable,
 	struct syncpoint_info *sp)
 {
-	struct platform_device *pdev = chan->ndev;
+	struct platform_device *pdev = chan_pdev(chan);
 	uint32_t gos_index = GOS_INDEX_INVALID;
 	uint32_t gos_offset = 0;
 	int err;
@@ -161,8 +161,10 @@ static void vi_capture_release_syncpt(
 	struct tegra_vi_channel *chan,
 	struct syncpoint_info *sp)
 {
+	struct platform_device *pdev = chan_pdev(chan);
+
 	if (sp->id)
-		chan->ops->release_syncpt(chan->ndev, sp->id);
+		chan->ops->release_syncpt(pdev, sp->id);
 
 	memset(sp, 0, sizeof(*sp));
 }
@@ -238,15 +240,14 @@ static int vi_capture_read_syncpt(
 	struct syncpoint_info *sp,
 	uint32_t *val)
 {
+	struct platform_device *pdev = chan_pdev(chan);
+	struct device *dev = chan_dev(chan);
 	int err;
 
 	if (sp->id) {
-		err = nvhost_syncpt_read_ext_check(chan->ndev,
-						sp->id, val);
+		err = nvhost_syncpt_read_ext_check(pdev, sp->id, val);
 		if (err < 0) {
-			dev_err(chan->dev,
-				"%s: get syncpt %i val failed\n", __func__,
-				sp->id);
+			dev_err(dev, "%s: get syncpt %i val failed\n", __func__, sp->id);
 			return -EINVAL;
 		}
 	}
@@ -267,15 +268,16 @@ static void vi_capture_ivc_status_callback(
 	struct CAPTURE_MSG *status_msg = (struct CAPTURE_MSG *)ivc_resp;
 	struct vi_capture *capture = (struct vi_capture *)pcontext;
 	struct tegra_vi_channel *chan = capture->vi_channel;
+	struct device *dev = chan_dev(chan);
 	uint32_t buffer_index;
 
 	if (unlikely(capture == NULL)) {
-		dev_err(chan->dev, "%s: invalid context", __func__);
+		dev_err(dev, "%s: invalid context", __func__);
 		return;
 	}
 
 	if (unlikely(status_msg == NULL)) {
-		dev_err(chan->dev, "%s: invalid response", __func__);
+		dev_err(dev, "%s: invalid response", __func__);
 		return;
 	}
 
@@ -302,13 +304,12 @@ static void vi_capture_ivc_status_callback(
 			 */
 			complete(&capture->capture_resp);
 		}
-		dev_dbg(chan->dev, "%s: status chan_id %u msg_id %u\n",
+		dev_dbg(dev, "%s: status chan_id %u msg_id %u\n",
 				__func__, status_msg->header.channel_id,
 				status_msg->header.msg_id);
 		break;
 	default:
-		dev_err(chan->dev,
-			"%s: unknown capture resp", __func__);
+		dev_err(dev, "%s: unknown capture resp", __func__);
 		break;
 	}
 }
@@ -330,41 +331,40 @@ static int vi_capture_ivc_send_control(
 	size_t size,
 	uint32_t resp_id)
 {
+	struct device *dev = chan_dev(chan);
 	struct vi_capture *capture = chan->capture_data;
 	struct CAPTURE_MSG_HEADER resp_header = msg->header;
 	uint32_t timeout = HZ;
 	int err = 0;
 
-	dev_dbg(chan->dev, "%s: sending chan_id %u msg_id %u\n",
+	dev_dbg(dev, "%s: sending chan_id %u msg_id %u\n",
 			__func__, resp_header.channel_id, resp_header.msg_id);
 	resp_header.msg_id = resp_id;
 	/* Send capture control IVC message */
 	mutex_lock(&capture->control_msg_lock);
 	err = tegra_capture_ivc_control_submit(msg, size);
 	if (err < 0) {
-		dev_err(chan->dev, "IVC control submit failed\n");
+		dev_err(dev, "IVC control submit failed\n");
 		goto fail;
 	}
 
 	timeout = wait_for_completion_timeout(
 			&capture->control_resp, timeout);
 	if (timeout <= 0) {
-		dev_err(chan->dev,
-			"capture control message timed out\n");
+		dev_err(dev, "capture control message timed out\n");
 		err = -ETIMEDOUT;
 		goto fail;
 	}
 
 	if (memcmp(&resp_header, &capture->control_resp_msg.header,
 			sizeof(resp_header)) != 0) {
-		dev_err(chan->dev,
-			"unexpected response from camera processor\n");
+		dev_err(dev, "unexpected response from camera processor\n");
 		err = -EINVAL;
 		goto fail;
 	}
 
 	mutex_unlock(&capture->control_msg_lock);
-	dev_dbg(chan->dev, "%s: response chan_id %u msg_id %u\n",
+	dev_dbg(dev, "%s: response chan_id %u msg_id %u\n",
 			__func__, capture->control_resp_msg.header.channel_id,
 			capture->control_resp_msg.header.msg_id);
 	return 0;
@@ -388,14 +388,15 @@ static void vi_capture_ivc_control_callback(
 	const struct CAPTURE_CONTROL_MSG *control_msg = ivc_resp;
 	struct vi_capture *capture = (struct vi_capture *)pcontext;
 	struct tegra_vi_channel *chan = capture->vi_channel;
+	struct device *dev = chan_dev(chan);
 
 	if (unlikely(capture == NULL)) {
-		dev_err(chan->dev, "%s: invalid context", __func__);
+		dev_err(dev, "%s: invalid context", __func__);
 		return;
 	}
 
 	if (unlikely(control_msg == NULL)) {
-		dev_err(chan->dev, "%s: invalid response", __func__);
+		dev_err(dev, "%s: invalid response", __func__);
 		return;
 	}
 
@@ -424,8 +425,7 @@ static void vi_capture_ivc_control_callback(
 		complete(&capture->control_resp);
 		break;
 	default:
-		dev_err(chan->dev,
-			"%s: unknown capture control resp 0x%x", __func__,
+		dev_err(dev, "%s: unknown capture control resp 0x%x", __func__,
 			control_msg->header.msg_id);
 		break;
 	}
@@ -435,19 +435,19 @@ int vi_capture_init(
 	struct tegra_vi_channel *chan,
 	bool is_mem_pinned)
 {
+	struct device *dev = chan_dev(chan);
 	struct vi_capture *capture;
 	struct device_node *dn;
 	struct platform_device *rtc_pdev;
-	struct device *dev;
-
-	dev = &chan->vi_capture_pdev->dev;
 
 	dev_dbg(dev, "%s++\n", __func__);
+
 	dn = of_find_node_by_path("tegra-camera-rtcpu");
 	if (of_device_is_available(dn) == 0) {
 		dev_err(dev, "failed to find rtcpu device node\n");
 		return -ENODEV;
 	}
+
 	rtc_pdev = of_find_device_by_node(dn);
 	if (rtc_pdev == NULL) {
 		dev_err(dev, "failed to find rtcpu platform\n");
@@ -487,9 +487,11 @@ EXPORT_SYMBOL_GPL(vi_capture_init);
 void vi_capture_shutdown(
 	struct tegra_vi_channel *chan)
 {
+	struct device *dev = chan_dev(chan);
 	struct vi_capture *capture = chan->capture_data;
 
-	dev_dbg(chan->dev, "%s--\n", __func__);
+	dev_dbg(dev, "%s--\n", __func__);
+
 	if (capture == NULL)
 		return;
 
@@ -524,30 +526,6 @@ void vi_capture_shutdown(
 }
 EXPORT_SYMBOL_GPL(vi_capture_shutdown);
 
-void vi_get_nvhost_device(
-	struct tegra_vi_channel *chan,
-	struct vi_capture_setup *setup)
-{
-	uint32_t vi_inst = 0;
-
-	struct tegra_capture_vi_data *info =
-		platform_get_drvdata(chan->vi_capture_pdev);
-
-	vi_inst = info->vi_instance_table[setup->csi_stream_id];
-
-	if (vi_inst >= MAX_VI_UNITS) {
-		dev_err(&chan->vi_capture_pdev->dev, "Invalid VI device Id\n");
-		chan->dev = NULL;
-		chan->ndev = NULL;
-		return;
-	}
-	vi_inst = array_index_nospec(vi_inst, MAX_VI_UNITS);
-
-	chan->dev = &info->vi_pdevices[vi_inst]->dev;
-	chan->ndev = info->vi_pdevices[vi_inst];
-}
-EXPORT_SYMBOL_GPL(vi_get_nvhost_device);
-
 struct device *vi_csi_stream_to_nvhost_device(
 	struct platform_device *pdev,
 	uint32_t csi_stream_id)
@@ -569,6 +547,8 @@ int vi_capture_setup(
 	struct tegra_vi_channel *chan,
 	struct vi_capture_setup *setup)
 {
+	struct platform_device *pdev = chan_pdev(chan);
+	struct device *dev = chan_dev(chan);
 	struct vi_capture *capture = chan->capture_data;
 	struct tegra_capture_vi_data *info;
 	uint32_t transaction;
@@ -578,9 +558,6 @@ int vi_capture_setup(
 		&control_desc.channel_setup_req.channel_config;
 	int err = 0;
 	uint32_t vi_inst = 0;
-	struct device *dev;
-
-	dev = &chan->vi_capture_pdev->dev;
 
 	if (setup->csi_stream_id >= MAX_NVCSI_STREAM_IDS ||
 		setup->virtual_channel_id >= MAX_VIRTUAL_CHANNEL_PER_STREAM) {
@@ -588,52 +565,31 @@ int vi_capture_setup(
 		return -EINVAL;
 	}
 
-	if (chan->vi_capture_pdev == NULL) {
-		dev_err(dev,
-			"%s: channel capture device is NULL", __func__);
-		return -EINVAL;
-	}
-
-	info = platform_get_drvdata(chan->vi_capture_pdev);
+	info = platform_get_drvdata(pdev);
 	vi_inst = info->vi_instance_table[setup->csi_stream_id];
 
-	/* V4L2 directly calls this function. So need to make sure the
-	 * correct VI5 instance is associated with the VI capture channel.
-	 */
-	if (chan->dev == NULL) {
-		vi_get_nvhost_device(chan, setup);
-		if (chan->dev == NULL) {
-			dev_err(&chan->vi_capture_pdev->dev,
-				"%s: channel device is NULL", __func__);
-			return -EINVAL;
-		}
-	}
-
 	if (setup->mem == 0 && setup->iova == 0) {
-		dev_err(chan->dev,
-			"%s: request buffer is NULL\n", __func__);
+		dev_err(dev, "%s: request buffer is NULL\n", __func__);
 		return -EINVAL;
 	}
 
 	if (capture == NULL) {
-		dev_err(chan->dev,
-			 "%s: vi capture uninitialized\n", __func__);
+		dev_err(dev, "%s: vi capture uninitialized\n", __func__);
 		return -ENODEV;
 	}
 
 	if (capture->channel_id != CAPTURE_CHANNEL_INVALID_ID) {
-		dev_err(chan->dev,
-			"%s: already setup, release first\n", __func__);
+		dev_err(dev, "%s: already setup, release first\n", __func__);
 		return -EEXIST;
 	}
 
-	dev_dbg(chan->dev, "chan flags %u\n", setup->channel_flags);
-	dev_dbg(chan->dev, "chan mask %llx\n", setup->vi_channel_mask);
-	dev_dbg(chan->dev, "queue depth %u\n", setup->queue_depth);
-	dev_dbg(chan->dev, "request size %u\n", setup->request_size);
-	dev_dbg(chan->dev, "csi_stream_id %u\n", setup->csi_stream_id);
-	dev_dbg(chan->dev, "vi unit id %u\n", vi_inst);
-	dev_dbg(chan->dev, "vi2 chan mask %llx\n", setup->vi2_channel_mask);
+	dev_dbg(dev, "chan flags %u\n", setup->channel_flags);
+	dev_dbg(dev, "chan mask %llx\n", setup->vi_channel_mask);
+	dev_dbg(dev, "queue depth %u\n", setup->queue_depth);
+	dev_dbg(dev, "request size %u\n", setup->request_size);
+	dev_dbg(dev, "csi_stream_id %u\n", setup->csi_stream_id);
+	dev_dbg(dev, "vi unit id %u\n", vi_inst);
+	dev_dbg(dev, "vi2 chan mask %llx\n", setup->vi2_channel_mask);
 
 	if (WARN_ON(vi_inst == VI_UNIT_VI &&
 		setup->vi_channel_mask == CAPTURE_CHANNEL_INVALID_MASK) ||
@@ -644,7 +600,7 @@ int vi_capture_setup(
 		WARN_ON(setup->request_size == 0) ||
 		WARN_ON(setup->csi_stream_id == NVCSI_STREAM_INVALID_ID)) {
 
-		dev_err(chan->dev, "%s: invalid setup parameters\n", __func__);
+		dev_err(dev, "%s: invalid setup parameters\n", __func__);
 		return -EINVAL;
 	}
 
@@ -658,7 +614,7 @@ int vi_capture_setup(
 
 	err = vi_capture_setup_syncpts(chan, setup->channel_flags);
 	if (err < 0) {
-		dev_err(chan->dev, "failed to setup syncpts\n");
+		dev_err(dev, "failed to setup syncpts\n");
 		goto syncpt_fail;
 	}
 
@@ -667,7 +623,7 @@ int vi_capture_setup(
 			&transaction, capture,
 			sizeof(struct CAPTURE_CONTROL_MSG));
 	if (err < 0) {
-		dev_err(chan->dev, "failed to register control callback\n");
+		dev_err(dev, "failed to register control callback\n");
 		goto control_cb_fail;
 	}
 
@@ -681,8 +637,7 @@ int vi_capture_setup(
 		&capture->requests_memoryinfo_iova, GFP_KERNEL);
 
 	if (!capture->requests_memoryinfo) {
-		dev_err(chan->dev,
-			"%s: memoryinfo ringbuffer alloc failed\n", __func__);
+		dev_err(dev, "%s: memoryinfo ringbuffer alloc failed\n", __func__);
 		goto memoryinfo_alloc_fail;
 	}
 
@@ -692,8 +647,7 @@ int vi_capture_setup(
 		vzalloc(setup->queue_depth * sizeof(*capture->unpins_list));
 
 	if (!capture->unpins_list) {
-		dev_err(chan->dev,
-			"%s: channel_unpins alloc failed\n", __func__);
+		dev_err(dev, "%s: channel_unpins alloc failed\n", __func__);
 		goto unpin_alloc_fail;
 	}
 
@@ -731,7 +685,7 @@ int vi_capture_setup(
 		goto submit_fail;
 
 	if (resp_msg->channel_setup_resp.result != CAPTURE_OK) {
-		dev_err(chan->dev, "%s: control failed, errno %d", __func__,
+		dev_err(dev, "%s: control failed, errno %d", __func__,
 			resp_msg->channel_setup_resp.result);
 		err = -EINVAL;
 		goto resp_fail;
@@ -746,7 +700,7 @@ int vi_capture_setup(
 		capture->vi2_channel_mask =
 				resp_msg->channel_setup_resp.vi_channel_mask;
 	else {
-		dev_err(chan->dev, "failed response for vi:%u\n", vi_inst);
+		dev_err(dev, "failed response for vi:%u\n", vi_inst);
 		err = -EINVAL;
 		goto resp_fail;
 	}
@@ -755,7 +709,7 @@ int vi_capture_setup(
 	err = tegra_capture_ivc_notify_chan_id(capture->channel_id,
 			transaction);
 	if (err < 0) {
-		dev_err(chan->dev, "failed to update control callback\n");
+		dev_err(dev, "failed to update control callback\n");
 		goto cb_fail;
 	}
 
@@ -764,7 +718,7 @@ int vi_capture_setup(
 			capture->channel_id, capture,
 			sizeof(struct CAPTURE_MSG));
 	if (err < 0) {
-		dev_err(chan->dev, "failed to register capture callback\n");
+		dev_err(dev, "failed to register capture callback\n");
 		goto cb_fail;
 	}
 
@@ -799,6 +753,7 @@ int vi_capture_reset(
 	uint32_t reset_flags)
 {
 	struct vi_capture *capture = chan->capture_data;
+	struct device *dev = chan_dev(chan);
 	struct CAPTURE_CONTROL_MSG control_desc;
 #ifdef CAPTURE_RESET_BARRIER_IND
 	struct CAPTURE_MSG capture_desc;
@@ -807,14 +762,12 @@ int vi_capture_reset(
 	int err = 0;
 
 	if (capture == NULL) {
-		dev_err(chan->dev,
-			 "%s: vi capture uninitialized\n", __func__);
+		dev_err(dev, "%s: vi capture uninitialized\n", __func__);
 		return -ENODEV;
 	}
 
 	if (capture->channel_id == CAPTURE_CHANNEL_INVALID_ID) {
-		dev_err(chan->dev,
-			"%s: setup channel first\n", __func__);
+		dev_err(dev, "%s: setup channel first\n", __func__);
 		return -ENODEV;
 	}
 
@@ -827,7 +780,7 @@ int vi_capture_reset(
 	err = tegra_capture_ivc_capture_submit(&capture_desc,
 			sizeof(capture_desc));
 	if (err < 0) {
-		dev_err(chan->dev, "%s:IVC capture submit failed\n", __func__);
+		dev_err(dev, "%s:IVC capture submit failed\n", __func__);
 		goto submit_fail;
 	}
 #endif
@@ -844,14 +797,14 @@ int vi_capture_reset(
 
 #ifdef CAPTURE_RESET_BARRIER_IND
 	if (resp_msg->channel_reset_resp.result == CAPTURE_ERROR_TIMEOUT) {
-		dev_dbg(chan->dev, "%s:reset timeout\n", __func__);
+		dev_dbg(dev, "%s:reset timeout\n", __func__);
 		err = -EAGAIN;
 		goto submit_fail;
 	}
 #endif
 
 	if (resp_msg->channel_reset_resp.result != CAPTURE_OK) {
-		dev_err(chan->dev, "%s: control failed, errno %d", __func__,
+		dev_err(dev, "%s: control failed, errno %d", __func__,
 			resp_msg->channel_reset_resp.result);
 		err = -EINVAL;
 	}
@@ -866,6 +819,7 @@ int vi_capture_release(
 	struct tegra_vi_channel *chan,
 	uint32_t reset_flags)
 {
+	struct device *dev = chan_dev(chan);
 	struct vi_capture *capture = chan->capture_data;
 	struct CAPTURE_CONTROL_MSG control_desc;
 	struct CAPTURE_CONTROL_MSG *resp_msg = &capture->control_resp_msg;
@@ -874,14 +828,12 @@ int vi_capture_release(
 	int i = 0;
 
 	if (capture == NULL) {
-		dev_err(chan->dev,
-			 "%s: vi capture uninitialized\n", __func__);
+		dev_err(dev, "%s: vi capture uninitialized\n", __func__);
 		return -ENODEV;
 	}
 
 	if (capture->channel_id == CAPTURE_CHANNEL_INVALID_ID) {
-		dev_err(chan->dev,
-			"%s: setup channel first\n", __func__);
+		dev_err(dev, "%s: setup channel first\n", __func__);
 		return -ENODEV;
 
 	}
@@ -894,15 +846,14 @@ int vi_capture_release(
 	err = vi_capture_ivc_send_control(chan, &control_desc,
 			sizeof(control_desc), CAPTURE_CHANNEL_RELEASE_RESP);
 	if (err < 0) {
-		dev_err(chan->dev,
-				"%s: release channel IVC failed\n", __func__);
+		dev_err(dev, "%s: release channel IVC failed\n", __func__);
 		WARN_ON("RTCPU is in a bad state. Reboot to recover");
 
 		tegra_camrtc_reboot(chan->rtcpu_dev);
 
 		err = -EIO;
 	} else if (resp_msg->channel_release_resp.result != CAPTURE_OK) {
-		dev_err(chan->dev, "%s: control failed, errno %d", __func__,
+		dev_err(dev, "%s: control failed, errno %d", __func__,
 			resp_msg->channel_release_resp.result);
 		err = -EIO;
 	}
@@ -917,15 +868,13 @@ int vi_capture_release(
 
 	ret = tegra_capture_ivc_unregister_capture_cb(capture->channel_id);
 	if (ret < 0 && err == 0) {
-		dev_err(chan->dev,
-			"failed to unregister capture callback\n");
+		dev_err(dev, "failed to unregister capture callback\n");
 		err = ret;
 	}
 
 	ret = tegra_capture_ivc_unregister_control_cb(capture->channel_id);
 	if (ret < 0 && err == 0) {
-		dev_err(chan->dev,
-			"failed to unregister control callback\n");
+		dev_err(dev, "failed to unregister control callback\n");
 		err = ret;
 	}
 
@@ -958,6 +907,7 @@ static int vi_capture_control_send_message(
 	size_t size)
 {
 	int err = 0;
+	struct device *dev = chan_dev(chan);
 	struct vi_capture *capture = chan->capture_data;
 	struct CAPTURE_MSG_HEADER *header;
 	uint32_t resp_id;
@@ -980,7 +930,7 @@ static int vi_capture_control_send_message(
 		break;
 	case CAPTURE_PHY_STREAM_OPEN_REQ:
 		if (chan->is_stream_opened) {
-			dev_dbg(chan->dev,
+			dev_dbg(dev,
 				"%s: NVCSI stream is already opened for this VI channel",
 				__func__);
 			return 0;
@@ -991,7 +941,7 @@ static int vi_capture_control_send_message(
 		break;
 	case CAPTURE_PHY_STREAM_CLOSE_REQ:
 		if (!chan->is_stream_opened) {
-			dev_dbg(chan->dev,
+			dev_dbg(dev,
 				"%s: NVCSI stream is already closed for this VI channel",
 				__func__);
 			return 0;
@@ -1033,14 +983,14 @@ static int vi_capture_control_send_message(
 		resp_id = CAPTURE_HSM_CHANSEL_ERROR_MASK_RESP;
 		break;
 	default:
-		dev_err(chan->dev, "%s: unknown capture control req 0x%x",
+		dev_err(dev, "%s: unknown capture control req 0x%x",
 			__func__, header->msg_id);
 		return -EINVAL;
 	}
 
 	err = vi_capture_ivc_send_control(chan, msg_cpy, size, resp_id);
 	if (err < 0) {
-		dev_err(chan->dev, "%s: failed to send IVC control message", __func__);
+		dev_err(dev, "%s: failed to send IVC control message", __func__);
 		return err;
 	}
 
@@ -1118,6 +1068,7 @@ static int csi_stream_close(
 int csi_stream_release(
 	struct tegra_vi_channel *chan)
 {
+	struct device *dev = chan_dev(chan);
 	struct vi_capture *capture = chan->capture_data;
 	int err = 0;
 
@@ -1127,7 +1078,7 @@ int csi_stream_release(
 	if (capture->virtual_channel_id != NVCSI_STREAM_INVALID_TPG_VC_ID) {
 		err = csi_stream_tpg_disable(chan);
 		if (err < 0) {
-			dev_err(chan->dev,
+			dev_err(dev,
 				"%s: failed to disable nvcsi tpg on stream %u virtual channel %u\n",
 				__func__, capture->stream_id,
 				capture->virtual_channel_id);
@@ -1138,8 +1089,7 @@ int csi_stream_release(
 	if (chan->is_stream_opened) {
 		err = csi_stream_close(chan);
 		if (err < 0)
-			dev_err(chan->dev,
-				"%s: failed to close nvcsi stream %u\n",
+			dev_err(dev, "%s: failed to close nvcsi stream %u\n",
 				__func__, capture->stream_id);
 	}
 
@@ -1150,6 +1100,7 @@ int vi_capture_control_message_from_user(
 	struct tegra_vi_channel *chan,
 	struct vi_capture_control_msg *msg)
 {
+	struct device *dev = NULL;
 	struct vi_capture *capture;
 	const void __user *msg_ptr;
 	void __user *response;
@@ -1158,15 +1109,15 @@ int vi_capture_control_message_from_user(
 	int err = 0;
 
 	if (chan == NULL) {
-		dev_err(NULL, "%s: NULL VI channel received\n", __func__);
+		dev_err(dev, "%s: NULL VI channel received\n", __func__);
 		return -ENODEV;
 	}
 
+	dev = chan_dev(chan);
 	capture = chan->capture_data;
 
 	if (capture == NULL) {
-		dev_err(chan->dev,
-			 "%s: vi capture uninitialized\n", __func__);
+		dev_err(dev, "%s: vi capture uninitialized\n", __func__);
 		return -ENODEV;
 	}
 
@@ -1206,21 +1157,22 @@ int vi_capture_control_message(
 	struct tegra_vi_channel *chan,
 	struct vi_capture_control_msg *msg)
 {
+	struct device *dev = NULL;
 	struct vi_capture *capture;
 	void *msg_cpy;
 	struct CAPTURE_CONTROL_MSG *resp_msg;
 	int err = 0;
 
 	if (chan == NULL) {
-		dev_err(NULL,"%s: NULL VI channel received\n", __func__);
+		dev_err(dev, "%s: NULL VI channel received\n", __func__);
 		return -ENODEV;
 	}
 
+	dev = chan_dev(chan);
 	capture = chan->capture_data;
 
 	if (capture == NULL) {
-		dev_err(chan->dev,
-			 "%s: vi capture uninitialized\n", __func__);
+		dev_err(dev, "%s: vi capture uninitialized\n", __func__);
 		return -ENODEV;
 	}
 
@@ -1251,18 +1203,17 @@ int vi_capture_get_info(
 	struct tegra_vi_channel *chan,
 	struct vi_capture_info *info)
 {
+	struct device *dev = chan_dev(chan);
 	struct vi_capture *capture = chan->capture_data;
 	int err;
 
 	if (capture == NULL) {
-		dev_err(chan->dev,
-			 "%s: vi capture uninitialized\n", __func__);
+		dev_err(dev, "%s: vi capture uninitialized\n", __func__);
 		return -ENODEV;
 	}
 
 	if (capture->channel_id == CAPTURE_CHANNEL_INVALID_ID) {
-		dev_err(chan->dev,
-			"%s: setup channel first\n", __func__);
+		dev_err(dev, "%s: setup channel first\n", __func__);
 		return -ENODEV;
 	}
 
@@ -1298,25 +1249,23 @@ int vi_capture_request(
 	struct tegra_vi_channel *chan,
 	struct vi_capture_req *req)
 {
+	struct device *dev = chan_dev(chan);
 	struct vi_capture *capture = chan->capture_data;
 	struct CAPTURE_MSG capture_desc;
 	int err = 0;
 
 	if (capture == NULL) {
-		dev_err(chan->dev,
-			"%s: vi capture uninitialized\n", __func__);
+		dev_err(dev, "%s: vi capture uninitialized\n", __func__);
 		return -ENODEV;
 	}
 
 	if (capture->channel_id == CAPTURE_CHANNEL_INVALID_ID) {
-		dev_err(chan->dev,
-			"%s: setup channel first\n", __func__);
+		dev_err(dev, "%s: setup channel first\n", __func__);
 		return -ENODEV;
 	}
 
 	if (req == NULL) {
-		dev_err(chan->dev,
-			"%s: Invalid req\n", __func__);
+		dev_err(dev, "%s: Invalid req\n", __func__);
 		return -EINVAL;
 	}
 
@@ -1327,14 +1276,14 @@ int vi_capture_request(
 	capture_desc.header.channel_id = capture->channel_id;
 	capture_desc.capture_request_req.buffer_index = req->buffer_index;
 
-	dev_dbg(chan->dev, "%s: sending chan_id %u msg_id %u buf:%u\n",
+	dev_dbg(dev, "%s: sending chan_id %u msg_id %u buf:%u\n",
 			__func__, capture_desc.header.channel_id,
 			capture_desc.header.msg_id, req->buffer_index);
 	err = tegra_capture_ivc_capture_submit(&capture_desc,
 			sizeof(capture_desc));
 	if (err < 0) {
 		mutex_unlock(&capture->reset_lock);
-		dev_err(chan->dev, "IVC capture submit failed\n");
+		dev_err(dev, "IVC capture submit failed\n");
 		return err;
 	}
 
@@ -1348,22 +1297,21 @@ int vi_capture_status(
 	struct tegra_vi_channel *chan,
 	int32_t timeout_ms)
 {
+	struct device *dev = chan_dev(chan);
 	struct vi_capture *capture = chan->capture_data;
 	int ret = 0;
 
 	if (capture == NULL) {
-		dev_err(chan->dev,
-			 "%s: vi capture uninitialized\n", __func__);
+		dev_err(dev, "%s: vi capture uninitialized\n", __func__);
 		return -ENODEV;
 	}
 
 	if (capture->channel_id == CAPTURE_CHANNEL_INVALID_ID) {
-		dev_err(chan->dev,
-			"%s: setup channel first\n", __func__);
+		dev_err(dev, "%s: setup channel first\n", __func__);
 		return -ENODEV;
 	}
 
-	dev_dbg(chan->dev, "%s: waiting for status, timeout:%d ms\n",
+	dev_dbg(dev, "%s: waiting for status, timeout:%d ms\n",
 		__func__, timeout_ms);
 
 	/* negative timeout means wait forever */
@@ -1374,15 +1322,13 @@ int vi_capture_status(
 				&capture->capture_resp,
 				msecs_to_jiffies(timeout_ms));
 		if (ret == 0) {
-			dev_dbg(chan->dev,
-				"capture status timed out\n");
+			dev_dbg(dev, "capture status timed out\n");
 			return -ETIMEDOUT;
 		}
 	}
 
 	if (ret < 0) {
-		dev_err(chan->dev,
-			"wait for capture status failed\n");
+		dev_err(dev, "wait for capture status failed\n");
 		return ret;
 	}
 
@@ -1394,25 +1340,23 @@ int vi_capture_set_progress_status_notifier(
 	struct tegra_vi_channel *chan,
 	struct vi_capture_progress_status_req *req)
 {
+	struct device *dev = chan_dev(chan);
 	int err = 0;
 	struct vi_capture *capture = chan->capture_data;
 
 	if (req->mem == 0 ||
 		req->buffer_depth == 0) {
-		dev_err(chan->dev,
-				"%s: request buffer is invalid\n", __func__);
+		dev_err(dev, "%s: request buffer is invalid\n", __func__);
 		return -EINVAL;
 	}
 
 	if (capture == NULL) {
-		dev_err(chan->dev,
-				"%s: vi capture uninitialized\n", __func__);
+		dev_err(dev, "%s: vi capture uninitialized\n", __func__);
 		return -ENODEV;
 	}
 
 	if (req->buffer_depth < capture->queue_depth) {
-		dev_err(chan->dev,
-			"Progress status buffer is smaller than queue depth");
+		dev_err(dev, "Progress status buffer is smaller than queue depth");
 		return -EINVAL;
 	}
 
@@ -1424,12 +1368,12 @@ int vi_capture_set_progress_status_notifier(
 		req->mem_offset);
 
 	if (err < 0) {
-		dev_err(chan->dev, "%s: memory setup failed\n", __func__);
+		dev_err(dev, "%s: memory setup failed\n", __func__);
 		return -EFAULT;
 	}
 
-	dev_dbg(chan->dev, "mem offset %u\n", req->mem_offset);
-	dev_dbg(chan->dev, "buffer depth %u\n", req->buffer_depth);
+	dev_dbg(dev, "mem offset %u\n", req->mem_offset);
+	dev_dbg(dev, "buffer depth %u\n", req->buffer_depth);
 
 	capture->progress_status_buffer_depth = req->buffer_depth;
 	capture->is_progress_status_notifier_set = true;
@@ -1590,7 +1534,7 @@ static int capture_vi_probe(struct platform_device *pdev)
 	err = tegra_capture_vi_media_controller_init(
 			&info->mc_vi, pdev);
 	if (err) {
-		dev_warn(&pdev->dev, "media controller init failed\n");
+		dev_warn(dev, "media controller init failed\n");
 		err = 0;
 	}
 
@@ -1603,6 +1547,7 @@ cleanup:
 		put_device(&info->vi_pdevices[ii]->dev);
 
 	dev_err(dev, "%s: tegra-camrtc-capture-vi probe failed\n", __func__);
+
 	return err;
 }
 

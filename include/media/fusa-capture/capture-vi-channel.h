@@ -67,8 +67,6 @@ struct vi_channel_drv_ops {
 struct vi_channel_drv {
 	struct platform_device *vi_capture_pdev;
 		/**< Capture VI driver platform device */
-	struct device *dev; /**< VI kernel @em device */
-	struct platform_device *ndev; /**< VI kernel @em platform_device */
 	struct mutex lock; /**< VI channel driver context lock */
 	u8 num_channels; /**< No. of VI channel character devices */
 	const struct vi_channel_drv_ops *ops;
@@ -81,10 +79,6 @@ struct vi_channel_drv {
  * @brief VI channel context (character device)
  */
 struct tegra_vi_channel {
-	struct device *dev; /**< VI device */
-	struct platform_device *ndev; /**< VI nvhost platform_device */
-	struct platform_device *vi_capture_pdev;
-		/**< Capture VI driver platform device */
 	struct vi_channel_drv *drv; /**< VI channel driver context */
 	struct rcu_head rcu; /**< VI channel rcu */
 	struct vi_capture *capture_data; /**< VI channel capture context */
@@ -92,6 +86,9 @@ struct tegra_vi_channel {
 	struct device *rtcpu_dev; /**< rtcpu device */
 	bool is_stream_opened; /**< Whether the NVCSI stream is opened */
 };
+
+#define chan_pdev(chan) (chan->drv->vi_capture_pdev)
+#define chan_dev(chan) (&chan->drv->vi_capture_pdev->dev)
 
 /**
  * @brief Create the VI channels driver contexts, and instantiate

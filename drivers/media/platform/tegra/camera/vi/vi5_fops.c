@@ -812,8 +812,8 @@ static int vi5_channel_start_streaming(struct vb2_queue *vq, u32 count)
 			if (emb_buf_size > chan->emb_buf_size) {
 				struct device *vi_unit_dev;
 
-				vi5_unit_get_device_handle(\
-					chan->vi->ndev, chan->port[0],\
+				vi5_unit_get_device_handle(
+					chan->vi->ndev, chan->port[0],
 					&vi_unit_dev);
 			/*
 			 * if old buffer is smaller than what we need,
@@ -922,7 +922,7 @@ static int vi5_channel_stop_streaming(struct vb2_queue *vq)
 			/* Release emd data buffers */
 			if (chan->emb_buf_size > 0) {
 				struct device *vi_unit_dev;
-				vi5_unit_get_device_handle(chan->vi->ndev, chan->port[0],\
+				vi5_unit_get_device_handle(chan->vi->ndev, chan->port[0],
 										&vi_unit_dev);
 				dma_free_coherent(vi_unit_dev, chan->emb_buf_size,
 								chan->emb_buf_addr, chan->emb_buf);

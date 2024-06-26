@@ -262,20 +262,6 @@ void vi_capture_shutdown(
 	struct tegra_vi_channel *chan);
 
 /**
- * @brief Select the NvHost VI client instance platform driver to be
- * associated with the channel.
- * Only used in the case where VI standalone driver is used
- * to enumerate the VI channel character drivers
- *
- * @param[in/out]	chan	VI channel context
- * @param[in]	setup	VI channel setup config
- *
- */
-void vi_get_nvhost_device(
-	struct tegra_vi_channel *chan,
-	struct vi_capture_setup *setup);
-
-/**
  * @brief The function returns the corresponding NvHost VI client device
  * pointer associated with the NVCSI stream Id. A NULL value is returned
  * if invalid input parameters are passed.
