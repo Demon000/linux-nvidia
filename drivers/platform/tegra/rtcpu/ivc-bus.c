@@ -36,11 +36,9 @@ struct tegra_ivc_bus {
 
 static void tegra_ivc_channel_ring(struct tegra_ivc *ivc, void *data)
 {
-	struct tegra_ivc_channel *chan =
-		container_of(ivc, struct tegra_ivc_channel, ivc);
 	struct camrtc_hsp *camhsp = (struct camrtc_hsp *) data;
 
-	camrtc_hsp_group_ring(camhsp, chan->group);
+	camrtc_hsp_group_ring(camhsp);
 }
 
 struct device_type tegra_ivc_channel_type = {

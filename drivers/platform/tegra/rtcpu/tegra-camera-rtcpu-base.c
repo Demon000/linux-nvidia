@@ -98,7 +98,6 @@ struct tegra_cam_rtcpu {
 	struct tegra_rtcpu_trace *tracer;
 	u32 cmd_timeout;
 	u32 fw_version;
-	u8 fw_hash[RTCPU_FW_HASH_SIZE];
 	struct {
 		u64 reset_complete;
 		u64 boot_handshake;
@@ -113,7 +112,6 @@ struct tegra_cam_rtcpu {
 	struct camrtc_clk_group *clocks;
 	struct camrtc_reset_group *resets[CAMRTC_NUM_RESETS];
 	const struct tegra_cam_rtcpu_pdata *pdata;
-	struct camrtc_device_group *camera_devices;
 	struct icc_path *icc_path;
 	u32 mem_bw;
 	struct tegra_camrtc_mon *monitor;
@@ -148,7 +146,6 @@ static int tegra_camrtc_get_resources(struct device *dev)
 {
 	struct tegra_cam_rtcpu *rtcpu = dev_get_drvdata(dev);
 	const struct tegra_cam_rtcpu_pdata *pdata = rtcpu->pdata;
-	struct camrtc_device_group *devgrp;
 	int i, err;
 
 	rtcpu->clocks = camrtc_clk_group_get(dev);
@@ -160,19 +157,6 @@ static int tegra_camrtc_get_resources(struct device *dev)
 		else
 			dev_warn(dev, "clocks not available: %d\n", err);
 		return err;
-	}
-
-	devgrp = camrtc_device_group_get(dev, "nvidia,camera-devices",
-		"nvidia,camera-device-names");
-	if (!IS_ERR(devgrp)) {
-		rtcpu->camera_devices = devgrp;
-	} else {
-		err = PTR_ERR(devgrp);
-		if (err == -EPROBE_DEFER)
-			return err;
-		if (err != -ENODATA && err != -ENOENT)
-			dev_warn(dev, "get %s: failed: %d\n",
-				"nvidia,camera-devices", err);
 	}
 
 #define GET_RESOURCES(_res_, _get_, _null_, _toerr)	\
@@ -430,14 +414,6 @@ static void tegra_camrtc_set_online(struct device *dev, bool online)
 	}
 }
 
-int tegra_camrtc_ping(struct device *dev, u32 data, long timeout)
-{
-	struct tegra_cam_rtcpu *rtcpu = dev_get_drvdata(dev);
-
-	return camrtc_hsp_ping(rtcpu->hsp, data, timeout);
-}
-EXPORT_SYMBOL(tegra_camrtc_ping);
-
 static void tegra_camrtc_ivc_notify(struct device *dev, u16 group)
 {
 	struct tegra_cam_rtcpu *rtcpu = dev_get_drvdata(dev);
@@ -563,57 +539,10 @@ int tegra_camrtc_iovm_setup(struct device *dev, dma_addr_t iova)
 }
 EXPORT_SYMBOL(tegra_camrtc_iovm_setup);
 
-ssize_t tegra_camrtc_print_version(struct device *dev,
-					char *buf, size_t size)
-{
-	struct tegra_cam_rtcpu *rtcpu = dev_get_drvdata(dev);
-	struct seq_buf s;
-	int i;
-
-	seq_buf_init(&s, buf, size);
-	seq_buf_printf(&s, "version cpu=%s cmd=%u sha1=",
-		rtcpu->name, rtcpu->fw_version);
-
-	for (i = 0; i < RTCPU_FW_HASH_SIZE; i++)
-		seq_buf_printf(&s, "%02x", rtcpu->fw_hash[i]);
-
-	return seq_buf_used(&s);
-}
-EXPORT_SYMBOL(tegra_camrtc_print_version);
-
-static void tegra_camrtc_log_fw_version(struct device *dev)
-{
-	char version[TEGRA_CAMRTC_VERSION_LEN];
-
-	tegra_camrtc_print_version(dev, version, sizeof(version));
-
-	dev_info(dev, "firmware %s\n", version);
-}
-
-static void tegra_camrtc_pm_start(struct device *dev, char const *op)
-{
-	struct tegra_cam_rtcpu *rtcpu = dev_get_drvdata(dev);
-
-	dev_dbg(dev, "start %s [powered=%d synced=%d active=%d online=%d]\n",
-		op, rtcpu->powered, rtcpu->boot_sync_done,
-		rtcpu->fw_active, rtcpu->online);
-}
-
-static void tegra_camrtc_pm_done(struct device *dev, char const *op, int err)
-{
-	struct tegra_cam_rtcpu *rtcpu = dev_get_drvdata(dev);
-
-	dev_dbg(dev, "done %s err=%d [powered=%d synced=%d active=%d online=%d]\n",
-		op, err, rtcpu->powered, rtcpu->boot_sync_done,
-		rtcpu->fw_active, rtcpu->online);
-}
-
 static int tegra_cam_rtcpu_runtime_suspend(struct device *dev)
 {
 	struct tegra_cam_rtcpu *rtcpu = dev_get_drvdata(dev);
 	int err;
-
-	tegra_camrtc_pm_start(dev, "runtime_suspend");
 
 	err = tegra_camrtc_fw_suspend(dev);
 	/* Try full reset if an error occurred while suspending core. */
@@ -630,22 +559,7 @@ static int tegra_cam_rtcpu_runtime_suspend(struct device *dev)
 
 	camrtc_clk_group_adjust_slow(rtcpu->clocks);
 
-	tegra_camrtc_pm_done(dev, "runtime_suspend", err);
-
 	return 0;
-}
-
-static int tegra_cam_rtcpu_runtime_resume(struct device *dev)
-{
-	int err;
-
-	tegra_camrtc_pm_start(dev, "runtime_resume");
-
-	err = tegra_camrtc_boot(dev);
-
-	tegra_camrtc_pm_done(dev, "runtime_resume", err);
-
-	return err;
 }
 
 static int tegra_cam_rtcpu_runtime_idle(struct device *dev)
@@ -720,10 +634,8 @@ static int tegra_cam_rtcpu_probe(struct platform_device *pdev)
 	uint32_t timeout;
 
 	pdata = of_device_get_match_data(dev);
-	if (pdata == NULL) {
-		dev_err(dev, "no device match\n");
+	if (!pdata)
 		return -ENODEV;
-	}
 
 	name = pdata->name;
 	of_property_read_string(dev->of_node, "nvidia,cpu-name", &name);
@@ -731,7 +643,7 @@ static int tegra_cam_rtcpu_probe(struct platform_device *pdev)
 	dev_dbg(dev, "probing RTCPU on %s\n", name);
 
 	rtcpu = devm_kzalloc(dev, sizeof(*rtcpu), GFP_KERNEL);
-	if (rtcpu == NULL)
+	if (!rtcpu)
 		return -ENOMEM;
 
 	rtcpu->pdata = pdata;
@@ -768,7 +680,7 @@ static int tegra_cam_rtcpu_probe(struct platform_device *pdev)
 	dev->dma_parms = &rtcpu->dma_parms;
 	dma_set_max_seg_size(dev, UINT_MAX);
 
-	rtcpu->tracer = tegra_rtcpu_trace_create(dev, rtcpu->camera_devices);
+	rtcpu->tracer = tegra_rtcpu_trace_create(dev);
 
 	ret = tegra_camrtc_hsp_init(dev);
 	if (ret)
@@ -794,13 +706,6 @@ static int tegra_cam_rtcpu_probe(struct platform_device *pdev)
 
 	if (of_property_read_bool(dev->of_node, "nvidia,disable-runtime-pm"))
 		pm_runtime_get(dev);
-
-	ret = camrtc_hsp_get_fw_hash(rtcpu->hsp,
-			rtcpu->fw_hash, sizeof(rtcpu->fw_hash));
-	if (ret)
-		dev_err(dev, "failed to get firmware hash!\n");
-	else
-		tegra_camrtc_log_fw_version(dev);
 
 	tegra_camrtc_set_online(dev, true);
 
@@ -847,60 +752,16 @@ int tegra_camrtc_reboot(struct device *dev)
 }
 EXPORT_SYMBOL(tegra_camrtc_reboot);
 
-int tegra_camrtc_restore(struct device *dev)
-{
-	struct tegra_cam_rtcpu *rtcpu = dev_get_drvdata(dev);
-
-	if (rtcpu->monitor)
-		return tegra_camrtc_mon_restore_rtcpu(rtcpu->monitor);
-	else
-		return tegra_camrtc_reboot(dev);
-}
-EXPORT_SYMBOL(tegra_camrtc_restore);
-
-bool tegra_camrtc_is_rtcpu_alive(struct device *dev)
-{
-	struct tegra_cam_rtcpu *rtcpu = dev_get_drvdata(dev);
-
-	return rtcpu->online;
-}
-EXPORT_SYMBOL(tegra_camrtc_is_rtcpu_alive);
-
-bool tegra_camrtc_is_rtcpu_powered(void)
-{
-	struct tegra_cam_rtcpu *rtcpu;
-
-	if (s_dev) {
-		rtcpu = dev_get_drvdata(s_dev);
-		return rtcpu->powered;
-	}
-
-	return false;
-}
-EXPORT_SYMBOL(tegra_camrtc_is_rtcpu_powered);
-
-void tegra_camrtc_flush_trace(struct device *dev)
-{
-	struct tegra_cam_rtcpu *rtcpu = dev_get_drvdata(dev);
-
-	tegra_rtcpu_trace_flush(rtcpu->tracer);
-}
-EXPORT_SYMBOL(tegra_camrtc_flush_trace);
-
-static int tegra_camrtc_halt(struct device *dev, char const *op)
+static int tegra_camrtc_halt(struct device *dev)
 {
 	struct tegra_cam_rtcpu *rtcpu = dev_get_drvdata(dev);
 	bool online = rtcpu->online;
 	int err = 0;
 
-	tegra_camrtc_pm_start(dev, op);
-
 	tegra_camrtc_set_online(dev, false);
 
-	if (!rtcpu->powered) {
-		tegra_camrtc_pm_done(dev, op, 0);
+	if (!rtcpu->powered)
 		return 0;
-	}
 
 	if (!pm_runtime_suspended(dev))
 		/* Tell CAMRTC that it should power down camera devices */
@@ -916,21 +777,12 @@ static int tegra_camrtc_halt(struct device *dev, char const *op)
 
 	tegra_camrtc_poweroff(dev);
 
-	tegra_camrtc_pm_done(dev, op, err); /* note this is not returned */
-
 	return 0;
-}
-
-static int tegra_camrtc_suspend(struct device *dev)
-{
-	return tegra_camrtc_halt(dev, "suspend");
 }
 
 static int tegra_camrtc_resume(struct device *dev)
 {
 	int err;
-
-	tegra_camrtc_pm_start(dev, "resume");
 
 	pm_runtime_mark_last_busy(dev);
 
@@ -940,14 +792,12 @@ static int tegra_camrtc_resume(struct device *dev)
 		/* Already marked ACTIVE, boot explicitly */
 		err = tegra_camrtc_boot(dev);
 
-	tegra_camrtc_pm_done(dev, "resume", err);
-
 	return err;
 }
 
 static void tegra_cam_rtcpu_shutdown(struct platform_device *pdev)
 {
-	tegra_camrtc_halt(&pdev->dev, "shutdown");
+	tegra_camrtc_halt(&pdev->dev);
 }
 
 static const struct of_device_id tegra_cam_rtcpu_of_match[] = {
@@ -959,10 +809,10 @@ static const struct of_device_id tegra_cam_rtcpu_of_match[] = {
 MODULE_DEVICE_TABLE(of, tegra_cam_rtcpu_of_match);
 
 static const struct dev_pm_ops tegra_cam_rtcpu_pm_ops = {
-	.suspend = tegra_camrtc_suspend,
+	.suspend = tegra_camrtc_halt,
 	.resume = tegra_camrtc_resume,
 	.runtime_suspend = tegra_cam_rtcpu_runtime_suspend,
-	.runtime_resume = tegra_cam_rtcpu_runtime_resume,
+	.runtime_resume = tegra_camrtc_boot,
 	.runtime_idle = tegra_cam_rtcpu_runtime_idle,
 };
 

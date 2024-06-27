@@ -14,30 +14,7 @@
 struct tegra_camrtc_mon {
 	struct device *rce_dev;
 	int wdt_irq;
-	struct work_struct wdt_work;
 };
-
-int tegra_camrtc_mon_restore_rtcpu(struct tegra_camrtc_mon *cam_rtcpu_mon)
-{
-	/* (Re)boot the rtcpu */
-	/* rtcpu-down and rtcpu-up events are broadcast to all ivc channels */
-	return tegra_camrtc_reboot(cam_rtcpu_mon->rce_dev);
-}
-EXPORT_SYMBOL(tegra_camrtc_mon_restore_rtcpu);
-
-static void tegra_camrtc_mon_wdt_worker(struct work_struct *work)
-{
-	struct tegra_camrtc_mon *cam_rtcpu_mon = container_of(work,
-					struct tegra_camrtc_mon, wdt_work);
-
-	dev_info(cam_rtcpu_mon->rce_dev,
-		"Alert: Camera RTCPU gone bad! restoring it immediately!!\n");
-
-	tegra_camrtc_mon_restore_rtcpu(cam_rtcpu_mon);
-
-	/* Enable WDT IRQ */
-	enable_irq(cam_rtcpu_mon->wdt_irq);
-}
 
 static irqreturn_t tegra_camrtc_mon_wdt_remote_isr(int irq, void *data)
 {
@@ -45,39 +22,18 @@ static irqreturn_t tegra_camrtc_mon_wdt_remote_isr(int irq, void *data)
 
 	disable_irq_nosync(irq);
 
-	schedule_work(&cam_rtcpu_mon->wdt_work);
+	tegra_camrtc_reboot(cam_rtcpu_mon->rce_dev);
+
+	enable_irq(cam_rtcpu_mon->wdt_irq);
 
 	return IRQ_HANDLED;
 }
 
-static int tegra_camrtc_mon_wdt_irq_setup(
-		struct tegra_camrtc_mon *cam_rtcpu_mon)
-{
-	struct platform_device *pdev =
-			to_platform_device(cam_rtcpu_mon->rce_dev);
-	int ret;
-
-	cam_rtcpu_mon->wdt_irq = platform_get_irq_byname(pdev, "wdt-remote");
-	if (cam_rtcpu_mon->wdt_irq < 0) {
-		dev_warn(&pdev->dev, "missing irq wdt-remote\n");
-		return -ENODEV;
-	}
-
-	ret = devm_request_threaded_irq(&pdev->dev, cam_rtcpu_mon->wdt_irq,
-			NULL, tegra_camrtc_mon_wdt_remote_isr, IRQF_ONESHOT,
-			dev_name(cam_rtcpu_mon->rce_dev), cam_rtcpu_mon);
-	if (ret)
-		return ret;
-
-	dev_info(&pdev->dev, "using cam RTCPU IRQ (%d)\n",
-			cam_rtcpu_mon->wdt_irq);
-
-	return 0;
-}
-
 struct tegra_camrtc_mon *tegra_camrtc_mon_create(struct device *dev)
 {
+	struct platform_device *pdev = to_platform_device(dev);
 	struct tegra_camrtc_mon *cam_rtcpu_mon;
+	int ret;
 
 	cam_rtcpu_mon = devm_kzalloc(dev, sizeof(*cam_rtcpu_mon), GFP_KERNEL);
 	if (unlikely(cam_rtcpu_mon == NULL))
@@ -85,12 +41,20 @@ struct tegra_camrtc_mon *tegra_camrtc_mon_create(struct device *dev)
 
 	cam_rtcpu_mon->rce_dev = dev;
 
-	/* Initialize wdt_work */
-	INIT_WORK(&cam_rtcpu_mon->wdt_work, tegra_camrtc_mon_wdt_worker);
+	ret = platform_get_irq_byname(pdev, "wdt-remote");
+	if (ret < 0) {
+		dev_err(dev, "Failed to find wdt-remote IRQ: %d\n", ret);
+		return ERR_PTR(ret);
+	}
 
-	tegra_camrtc_mon_wdt_irq_setup(cam_rtcpu_mon);
+	cam_rtcpu_mon->wdt_irq = ret;
 
-	dev_info(dev, "tegra_camrtc_mon_create is successful\n");
+	ret = devm_request_threaded_irq(dev, cam_rtcpu_mon->wdt_irq,
+					NULL, tegra_camrtc_mon_wdt_remote_isr,
+					IRQF_ONESHOT, dev_name(dev),
+					cam_rtcpu_mon);
+	if (ret)
+		return ERR_PTR(ret);
 
 	return cam_rtcpu_mon;
 }
@@ -98,9 +62,6 @@ EXPORT_SYMBOL(tegra_camrtc_mon_create);
 
 int tegra_cam_rtcpu_mon_destroy(struct tegra_camrtc_mon *cam_rtcpu_mon)
 {
-	if (IS_ERR_OR_NULL(cam_rtcpu_mon))
-		return -EINVAL;
-
 	devm_kfree(cam_rtcpu_mon->rce_dev, cam_rtcpu_mon);
 
 	return 0;

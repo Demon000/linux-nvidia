@@ -89,10 +89,6 @@ struct tegra_rtcpu_trace {
 	/* debugfs */
 	struct dentry *debugfs_root;
 
-	struct platform_device *vi_platform_device;
-	struct platform_device *vi1_platform_device;
-	struct platform_device *isp_platform_device;
-
 	/* printk logging */
 	const char *log_prefix;
 	bool enable_printk;
@@ -123,7 +119,7 @@ static int rtcpu_trace_setup_memory(struct tegra_rtcpu_trace *tracer)
 	mem_size = reg_spec.args[2];
 	trace_memory = dma_alloc_coherent(dev, mem_size, &dma_addr,
 					GFP_KERNEL | __GFP_ZERO);
-	if (trace_memory == NULL) {
+	if (!trace_memory) {
 		ret = -ENOMEM;
 		goto error;
 	}
@@ -787,9 +783,6 @@ const unsigned int g_trace_isp_falcon_task_str_count =
 static void rtcpu_trace_isp_task_event(struct tegra_rtcpu_trace *tracer,
 	struct camrtc_event_struct *event)
 {
-	if (tracer->isp_platform_device == NULL)
-		return;
-
 	switch (event->header.id) {
 	case camrtc_trace_isp_task_begin:
 		trace_isp_task_begin(
@@ -1204,9 +1197,6 @@ static inline void rtcpu_trace_events(struct tegra_rtcpu_trace *tracer)
 
 void tegra_rtcpu_trace_flush(struct tegra_rtcpu_trace *tracer)
 {
-	if (tracer == NULL)
-		return;
-
 	mutex_lock(&tracer->lock);
 
 	/* invalidate the cache line for the pointers */
@@ -1360,15 +1350,14 @@ failed_create:
  * Init/Cleanup
  */
 
-struct tegra_rtcpu_trace *tegra_rtcpu_trace_create(struct device *dev,
-	struct camrtc_device_group *camera_devices)
+struct tegra_rtcpu_trace *tegra_rtcpu_trace_create(struct device *dev)
 {
 	struct tegra_rtcpu_trace *tracer;
 	u32 param;
 	int ret;
 
 	tracer = kzalloc(sizeof(*tracer), GFP_KERNEL);
-	if (unlikely(tracer == NULL))
+	if (!tracer))
 		return NULL;
 
 	tracer->dev = dev;
@@ -1387,29 +1376,6 @@ struct tegra_rtcpu_trace *tegra_rtcpu_trace_create(struct device *dev,
 
 	/* Debugfs */
 	rtcpu_trace_debugfs_init(tracer);
-
-	if (camera_devices != NULL) {
-		tracer->isp_platform_device =
-			camrtc_device_get_byname(camera_devices, "isp");
-		if (IS_ERR(tracer->isp_platform_device)) {
-			dev_info(dev, "no camera-device \"%s\"\n", "isp");
-			tracer->isp_platform_device = NULL;
-		}
-
-		tracer->vi_platform_device =
-			camrtc_device_get_byname(camera_devices, "vi0");
-		if (IS_ERR(tracer->vi_platform_device)) {
-			dev_info(dev, "no camera-device \"%s\"\n", "vi0");
-			tracer->vi_platform_device = NULL;
-		}
-
-		tracer->vi1_platform_device =
-			camrtc_device_get_byname(camera_devices, "vi1");
-		if (IS_ERR(tracer->vi1_platform_device)) {
-			dev_info(dev, "no camera-device \"%s\"\n", "vi1");
-			tracer->vi1_platform_device = NULL;
-		}
-	}
 
 	/* Worker */
 	param = WORK_INTERVAL_DEFAULT;
@@ -1447,16 +1413,16 @@ int tegra_rtcpu_trace_boot_sync(struct tegra_rtcpu_trace *tracer)
 {
 	int ret;
 
-	if (tracer == NULL)
+	if (!tracer)
 		return 0;
 
 	ret = tegra_camrtc_iovm_setup(tracer->dev, tracer->dma_handle);
-	if (ret == 0)
-		return 0;
+	if (ret) {
+		dev_err(tracer->dev, "RTCPU trace: IOVM setup error: %d\n", ret);
+		return ret;
+	}
 
-	dev_err(tracer->dev, "RTCPU trace: IOVM setup error: %d\n", ret);
-
-	return -EIO;
+	return 0;
 }
 EXPORT_SYMBOL(tegra_rtcpu_trace_boot_sync);
 
@@ -1464,9 +1430,6 @@ void tegra_rtcpu_trace_destroy(struct tegra_rtcpu_trace *tracer)
 {
 	if (IS_ERR_OR_NULL(tracer))
 		return;
-	platform_device_put(tracer->isp_platform_device);
-	platform_device_put(tracer->vi_platform_device);
-	platform_device_put(tracer->vi1_platform_device);
 	of_node_put(tracer->of_node);
 	cancel_delayed_work_sync(&tracer->work);
 	flush_delayed_work(&tracer->work);

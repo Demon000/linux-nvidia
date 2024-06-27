@@ -5,9 +5,6 @@ ccflags-y += -Wframe-larger-than=2048
 
 obj-m += capture-ivc.o
 obj-m += ivc-bus.o
-obj-m += camchar.o
-obj-m += camera-diagnostics.o
-obj-m += rtcpu-debug.o
 obj-m += hsp-mailbox-client.o
 
 tegra-camera-rtcpu-objs := clk-group.o \
