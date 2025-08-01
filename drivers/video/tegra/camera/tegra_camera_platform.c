@@ -386,7 +386,7 @@ static int tegra_camera_symlink(struct device_node *np, bool create)
 		if (create) {
 			ret = sysfs_create_link(&np->kobj, &camera_np->kobj, path);
 		} else {
-			sysfs_delete_link(&np->kobj, &camera_np->kobj, path);
+			sysfs_remove_link(&np->kobj, path);
 		}
 
 		if (ret)
