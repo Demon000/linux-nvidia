@@ -1491,73 +1491,6 @@ static const struct v4l2_ctrl_config common_custom_ctrls[] = {
 	},
 	{
 		.ops = &channel_ctrl_ops,
-		.id = TEGRA_CAMERA_CID_SENSOR_MODES,
-		.name = "Sensor Modes",
-		.type = V4L2_CTRL_TYPE_INTEGER,
-		.flags = V4L2_CTRL_FLAG_READ_ONLY,
-		.min = 0,
-		.max = MAX_NUM_SENSOR_MODES,
-		.def = MAX_NUM_SENSOR_MODES,
-		.step = 1,
-	},
-	{
-		.ops = &channel_ctrl_ops,
-		.id = TEGRA_CAMERA_CID_SENSOR_SIGNAL_PROPERTIES,
-		.name = "Sensor Signal Properties",
-		.type = V4L2_CTRL_TYPE_U32,
-		.flags = V4L2_CTRL_FLAG_HAS_PAYLOAD |
-			 V4L2_CTRL_FLAG_READ_ONLY,
-		.min = 0,
-		.max = 0xFFFFFFFF,
-		.step = 1,
-		.def = 0,
-		.dims = { MAX_NUM_SENSOR_MODES,
-			  SENSOR_SIGNAL_PROPERTIES_CID_SIZE },
-	},
-	{
-		.ops = &channel_ctrl_ops,
-		.id = TEGRA_CAMERA_CID_SENSOR_IMAGE_PROPERTIES,
-		.name = "Sensor Image Properties",
-		.type = V4L2_CTRL_TYPE_U32,
-		.flags = V4L2_CTRL_FLAG_HAS_PAYLOAD |
-			 V4L2_CTRL_FLAG_READ_ONLY,
-		.min = 0,
-		.max = 0xFFFFFFFF,
-		.step = 1,
-		.def = 0,
-		.dims = { MAX_NUM_SENSOR_MODES,
-			  SENSOR_IMAGE_PROPERTIES_CID_SIZE },
-	},
-	{
-		.ops = &channel_ctrl_ops,
-		.id = TEGRA_CAMERA_CID_SENSOR_CONTROL_PROPERTIES,
-		.name = "Sensor Control Properties",
-		.type = V4L2_CTRL_TYPE_U32,
-		.flags = V4L2_CTRL_FLAG_HAS_PAYLOAD |
-			 V4L2_CTRL_FLAG_READ_ONLY,
-		.min = 0,
-		.max = 0xFFFFFFFF,
-		.step = 1,
-		.def = 0,
-		.dims = { MAX_NUM_SENSOR_MODES,
-			  SENSOR_CONTROL_PROPERTIES_CID_SIZE },
-	},
-	{
-		.ops = &channel_ctrl_ops,
-		.id = TEGRA_CAMERA_CID_SENSOR_DV_TIMINGS,
-		.name = "Sensor DV Timings",
-		.type = V4L2_CTRL_TYPE_U32,
-		.flags = V4L2_CTRL_FLAG_HAS_PAYLOAD |
-			 V4L2_CTRL_FLAG_READ_ONLY,
-		.min = 0,
-		.max = 0xFFFFFFFF,
-		.step = 1,
-		.def = 0,
-		.dims = { MAX_NUM_SENSOR_MODES,
-			  SENSOR_DV_TIMINGS_CID_SIZE },
-	},
-	{
-		.ops = &channel_ctrl_ops,
 		.id = TEGRA_CAMERA_CID_LOW_LATENCY,
 		.name = "Low Latency Mode",
 		.type = V4L2_CTRL_TYPE_BOOLEAN,
@@ -1577,90 +1510,6 @@ static const struct v4l2_ctrl_config common_custom_ctrls[] = {
 		.def = 0,
 	},
 };
-
-#define GET_TEGRA_CAMERA_CTRL(id, c)					\
-do {									\
-	c = v4l2_ctrl_find(&chan->ctrl_handler, TEGRA_CAMERA_CID_##id);	\
-	if (!c) {							\
-		dev_err(chan->vi->dev, "%s: could not find ctrl %s\n",	\
-			__func__, "##id");				\
-		return -EINVAL;						\
-	}								\
-} while (0)
-
-static int tegra_channel_sensorprops_setup(struct tegra_channel *chan)
-{
-	const struct v4l2_subdev *sd = chan->subdev_on_csi;
-	const struct camera_common_data *s_data =
-			to_camera_common_data(sd->dev);
-	const struct sensor_mode_properties *modes;
-	struct v4l2_ctrl *ctrl_modes;
-	struct v4l2_ctrl *ctrl_signalprops;
-	struct v4l2_ctrl *ctrl_imageprops;
-	struct v4l2_ctrl *ctrl_controlprops;
-	struct v4l2_ctrl *ctrl_dvtimings;
-	u32 i;
-
-	if (!s_data)
-		return 0;
-
-	GET_TEGRA_CAMERA_CTRL(SENSOR_MODES, ctrl_modes);
-	GET_TEGRA_CAMERA_CTRL(SENSOR_SIGNAL_PROPERTIES, ctrl_signalprops);
-	GET_TEGRA_CAMERA_CTRL(SENSOR_IMAGE_PROPERTIES, ctrl_imageprops);
-	GET_TEGRA_CAMERA_CTRL(SENSOR_CONTROL_PROPERTIES, ctrl_controlprops);
-	GET_TEGRA_CAMERA_CTRL(SENSOR_DV_TIMINGS, ctrl_dvtimings);
-
-	ctrl_modes->val = s_data->sensor_props.num_modes;
-	ctrl_modes->cur.val = s_data->sensor_props.num_modes;
-
-	/* Update the control sizes
-	 *
-	 * Note that the structs have size elems * sizeof(u32)
-	 * So to get the number of structs (elems * sizeof(u32)) / num_modes
-	 */
-	ctrl_signalprops->elems = s_data->sensor_props.num_modes *
-					SENSOR_SIGNAL_PROPERTIES_CID_SIZE;
-
-	ctrl_imageprops->elems = s_data->sensor_props.num_modes *
-					SENSOR_IMAGE_PROPERTIES_CID_SIZE;
-
-	ctrl_controlprops->elems = s_data->sensor_props.num_modes *
-					SENSOR_CONTROL_PROPERTIES_CID_SIZE;
-
-	ctrl_dvtimings->elems = s_data->sensor_props.num_modes *
-					SENSOR_DV_TIMINGS_CID_SIZE;
-
-	modes = s_data->sensor_props.sensor_modes;
-	for (i = 0; i < s_data->sensor_props.num_modes; i++) {
-		void *ptr = NULL;
-		u32 size;
-
-		size = sizeof(struct sensor_signal_properties);
-		ptr = ctrl_signalprops->p_new.p + (i * size);
-		memcpy(ptr, &modes[i].signal_properties, size);
-
-		size = sizeof(struct sensor_image_properties);
-		ptr = ctrl_imageprops->p_new.p + (i * size);
-		memcpy(ptr, &modes[i].image_properties, size);
-
-		size = sizeof(struct sensor_control_properties);
-		ptr = ctrl_controlprops->p_new.p + (i * size);
-		memcpy(ptr, &modes[i].control_properties, size);
-
-		size = sizeof(struct sensor_dv_timings);
-		ptr = ctrl_dvtimings->p_new.p + (i * size);
-		memcpy(ptr, &modes[i].dv_timings, size);
-	}
-	spec_bar();
-
-	/* Do not copy memory into p_cur block, reuse p_new */
-	ctrl_signalprops->p_cur.p = ctrl_signalprops->p_new.p;
-	ctrl_imageprops->p_cur.p = ctrl_imageprops->p_new.p;
-	ctrl_controlprops->p_cur.p = ctrl_controlprops->p_new.p;
-	ctrl_dvtimings->p_cur.p = ctrl_dvtimings->p_new.p;
-
-	return 0;
-}
 
 static int tegra_channel_setup_controls(struct tegra_channel *chan)
 {
@@ -2086,13 +1935,6 @@ int tegra_channel_init_subdevices(struct tegra_channel *chan)
 		tegra_channel_populate_dev_info(&camdev_info, chan);
 		ret = tegra_camera_device_register(&camdev_info, chan);
 		return ret;
-	}
-
-	ret = tegra_channel_sensorprops_setup(chan);
-	if (ret < 0) {
-		dev_err(chan->vi->dev, "%s: failed to setup sensor props\n",
-			__func__);
-		goto fail;
 	}
 
 	/* Add a link for the camera_common_data in the tegra_csi_channel. */
