@@ -996,14 +996,18 @@ static int vi5_channel_start_streaming(struct vb2_queue *vq, u32 count)
 	if (ret < 0)
 		goto err_set_stream;
 
+#if 0
 	ret = tegra_channel_write_blobs(chan);
 	if (ret < 0)
 		goto err_write_blobs;
+#endif
 
 	return 0;
 
+#if 0
 err_write_blobs:
 	tegra_channel_set_stream(chan, false);
+#endif
 
 err_set_stream:
 	if (!chan->bypass)

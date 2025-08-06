@@ -885,6 +885,7 @@ EXPORT_SYMBOL(tegra_channel_queued_buf_done);
  * subdevice set/unset operations
  * -----------------------------------------------------------------------------
  */
+#if 0
 int tegra_channel_write_blobs(struct tegra_channel *chan)
 {
 	struct v4l2_subdev *sd = NULL;
@@ -908,6 +909,7 @@ int tegra_channel_write_blobs(struct tegra_channel *chan)
 	return tegracam_write_blobs(s_data->tegracam_ctrl_hdl);
 }
 EXPORT_SYMBOL(tegra_channel_write_blobs);
+#endif
 
 int tegra_channel_set_stream(struct tegra_channel *chan, bool on)
 {
