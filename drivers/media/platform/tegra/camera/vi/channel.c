@@ -2319,6 +2319,7 @@ static int tegra_channel_s_input(struct file *file, void *priv, unsigned int i)
 }
 #endif
 
+#if 0
 static int tegra_channel_log_status(struct file *file, void *priv)
 {
 	struct tegra_channel *chan = video_drvdata(file);
@@ -2327,6 +2328,7 @@ static int tegra_channel_log_status(struct file *file, void *priv)
 		chan->grp_id, core, log_status);
 	return 0;
 }
+#endif
 
 static long tegra_channel_default_ioctl(struct file *file, void *fh,
 			bool use_prio, unsigned int cmd, void *arg)
@@ -2402,7 +2404,9 @@ static const struct v4l2_ioctl_ops tegra_channel_ioctl_ops = {
 	.vidioc_g_input			= tegra_channel_g_input,
 	.vidioc_s_input			= tegra_channel_s_input,
 #endif
+#if 0
 	.vidioc_log_status		= tegra_channel_log_status,
+#endif
 	.vidioc_default			= tegra_channel_default_ioctl,
 };
 
