@@ -2311,6 +2311,7 @@ static long tegra_channel_default_ioctl(struct file *file, void *fh,
 
 /* Implemented vidioc_s_parm and vidioc_g_parm ioctl to support multiple frame
  * rates */
+#if 0
 static int tegra_channel_s_parm(struct file *file, void *fh,
                struct v4l2_streamparm *a)
 {
@@ -2328,6 +2329,7 @@ static int tegra_channel_g_parm(struct file *file, void *fh,
 
 	return v4l2_g_parm_cap(chan->video, sd, a);
 }
+#endif
 
 static const struct v4l2_ioctl_ops tegra_channel_ioctl_ops = {
 	.vidioc_querycap		= tegra_channel_querycap,
@@ -2335,8 +2337,10 @@ static const struct v4l2_ioctl_ops tegra_channel_ioctl_ops = {
 #if 0
 	.vidioc_enum_frameintervals	= tegra_channel_enum_frameintervals,
 #endif
+#if 0
 	.vidioc_s_parm                  = tegra_channel_s_parm,
 	.vidioc_g_parm                  = tegra_channel_g_parm,
+#endif
 	.vidioc_enum_fmt_vid_cap	= tegra_channel_enum_format,
 	.vidioc_g_fmt_vid_cap		= tegra_channel_get_format,
 	.vidioc_s_fmt_vid_cap		= tegra_channel_set_format,
