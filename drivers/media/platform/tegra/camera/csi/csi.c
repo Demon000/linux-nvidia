@@ -77,6 +77,7 @@ static void update_blank_intervals(struct tegra_csi_channel *chan,
 	port->v_blank = tegra_csi_tpg_frmfmt[fmtindex].v_blank;
 }
 
+#if 0
 static struct sensor_mode_properties*
 read_mode_from_dt(struct camera_common_data *s_data)
 {
@@ -91,6 +92,7 @@ read_mode_from_dt(struct camera_common_data *s_data)
 
 	return mode;
 }
+#endif
 
 #if 0
 u32 read_settle_time_from_dt(struct tegra_csi_channel *chan)
@@ -126,6 +128,7 @@ u32 read_settle_time_from_dt(struct tegra_csi_channel *chan)
 
 u32 read_phy_mode_from_dt(struct tegra_csi_channel *chan)
 {
+#if 0
 	struct camera_common_data *s_data = chan->s_data;
 	struct sensor_mode_properties *mode = read_mode_from_dt(s_data);
 	struct device *dev = chan->csi->dev;
@@ -140,10 +143,14 @@ u32 read_phy_mode_from_dt(struct tegra_csi_channel *chan)
 	}
 
 	return phy_mode;
+#else
+	return CSI_PHY_MODE_DPHY;
+#endif
 }
 
 u64 read_mipi_clk_from_dt(struct tegra_csi_channel *chan)
 {
+#if 0
 	struct sensor_signal_properties *sig_props;
 	struct sensor_properties *props;
 	u64 mipi_clk = 0;
@@ -157,6 +164,9 @@ u64 read_mipi_clk_from_dt(struct tegra_csi_channel *chan)
 	}
 
 	return mipi_clk;
+#else
+	return 0;
+#endif
 }
 
 #if 0
