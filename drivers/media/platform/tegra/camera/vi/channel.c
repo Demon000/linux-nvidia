@@ -1065,6 +1065,7 @@ tegra_channel_querycap(struct file *file, void *fh, struct v4l2_capability *cap)
 	return 0;
 }
 
+#if 0
 static int
 tegra_channel_enum_framesizes(struct file *file, void *fh,
 			      struct v4l2_frmsizeenum *sizes)
@@ -1094,6 +1095,26 @@ tegra_channel_enum_framesizes(struct file *file, void *fh,
 
 	return ret;
 }
+#else
+static int
+tegra_channel_enum_framesizes(struct file *file, void *fh,
+			      struct v4l2_frmsizeenum *fsize)
+{
+	if (fsize->index)
+		return -EINVAL;
+
+	fsize->type = V4L2_FRMSIZE_TYPE_STEPWISE;
+	fsize->stepwise.min_width = 32;
+	fsize->stepwise.max_width = 65535;
+	fsize->stepwise.step_width = 2;
+
+	fsize->stepwise.min_height = 32;
+	fsize->stepwise.max_height = 65535;
+	fsize->stepwise.step_height = 2;
+
+	return 0;
+}
+#endif
 
 static int
 tegra_channel_enum_frameintervals(struct file *file, void *fh,
