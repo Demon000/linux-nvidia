@@ -220,6 +220,7 @@ static void tegra_channel_fmt_align(struct tegra_channel *chan,
 
 /* Check if sensor mode is interlaced and the type of interlaced mode */
 
+#if 0
 static void tegra_channel_set_interlace_mode(struct tegra_channel *chan)
 {
 	struct v4l2_subdev *sd = NULL;
@@ -249,6 +250,7 @@ static void tegra_channel_set_interlace_mode(struct tegra_channel *chan)
 		}
 	}
 }
+#endif
 
 static void tegra_channel_update_format(struct tegra_channel *chan,
 		u32 width, u32 height, u32 fourcc,
@@ -283,7 +285,9 @@ static void tegra_channel_update_format(struct tegra_channel *chan,
 	chan->format.sizeimage = get_aligned_buffer_size(chan,
 			chan->format.bytesperline, chan->format.height);
 
+#if 0
 	tegra_channel_set_interlace_mode(chan);
+#endif
 	/* Double the size of allocated buffer for interlaced sensor modes */
 	if (chan->is_interlaced)
 		chan->format.sizeimage *= 2;
