@@ -70,7 +70,9 @@ struct tegra_csi_device {
 	struct clk *plld_dsi;
 	struct clk *plld;
 
+#if 0
 	struct camera_common_data s_data[6];
+#endif
 	struct tegra_csi_port *ports;
 	struct media_pad *pads;
 
@@ -117,7 +119,9 @@ struct tegra_csi_channel {
 	unsigned int numports;
 	unsigned int numlanes;
 	unsigned int pg_mode;
+#if 0
 	struct camera_common_data *s_data;
+#endif
 	unsigned int id;
 	atomic_t is_streaming;
 
