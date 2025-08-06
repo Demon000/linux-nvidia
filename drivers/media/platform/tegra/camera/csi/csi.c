@@ -1085,6 +1085,7 @@ void tpg_csi_media_controller_cleanup(struct tegra_csi_device *csi)
 }
 EXPORT_SYMBOL(tpg_csi_media_controller_cleanup);
 
+#if 0
 int tegra_csi_mipi_calibrate(struct tegra_csi_device *csi,
 				bool on)
 {
@@ -1117,6 +1118,7 @@ int tegra_csi_mipi_calibrate(struct tegra_csi_device *csi,
 
 	return 0;
 }
+#endif
 
 int tegra_csi_media_controller_init(struct tegra_csi_device *csi,
 				    struct platform_device *pdev)

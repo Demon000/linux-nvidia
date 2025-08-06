@@ -149,8 +149,10 @@ int tegra_csi_tpg_set_gain(struct v4l2_subdev *sd, void *arg);
 void tegra_csi_error_recover(struct tegra_csi_channel *chan, int port_idx);
 int tegra_csi_init(struct tegra_csi_device *csi,
 		struct platform_device *pdev);
+#if 0
 int tegra_csi_mipi_calibrate(struct tegra_csi_device *csi,
 				bool on);
+#endif
 int tegra_csi_media_controller_init(struct tegra_csi_device *csi,
 				struct platform_device *pdev);
 int tegra_csi_media_controller_remove(struct tegra_csi_device *csi);
