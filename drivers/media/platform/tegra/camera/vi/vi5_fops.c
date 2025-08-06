@@ -854,10 +854,12 @@ static int vi5_channel_start_streaming(struct vb2_queue *vq, u32 count)
 	int ret = 0;
 	int vi_port = 0;
 	unsigned long flags;
+#if 0
 	struct v4l2_subdev *sd;
 	struct device_node *node;
 	struct sensor_mode_properties *sensor_mode;
 	struct camera_common_data *s_data;
+#endif
 	unsigned int emb_buf_size = 0;
 
 	/* Skip in bypass mode */
@@ -873,6 +875,7 @@ static int vi5_channel_start_streaming(struct vb2_queue *vq, u32 count)
 			spin_unlock_irqrestore(&chan->capture_state_lock, flags);
 
 			if (!chan->pg_mode) {
+#if 0
 				sd = chan->subdev_on_csi;
 				node = sd->dev->of_node;
 				s_data = to_camera_common_data(sd->dev);
@@ -895,6 +898,7 @@ static int vi5_channel_start_streaming(struct vb2_queue *vq, u32 count)
 							sensor_mode->\
 							 image_properties.\
 						      embedded_metadata_height;
+
 						/* rounding up to page size */
 						emb_buf_size =
 							round_up(chan->\
@@ -904,6 +908,7 @@ static int vi5_channel_start_streaming(struct vb2_queue *vq, u32 count)
 							BPP_MEM, PAGE_SIZE);
 					}
 				}
+#endif
 				/* Allocate buffer for Embedded Data if need to*/
 				if (emb_buf_size > chan->emb_buf_size) {
 					struct device *vi_unit_dev;
