@@ -1333,6 +1333,7 @@ int tegra_channel_s_ctrl(struct v4l2_ctrl *ctrl)
 	int err = 0;
 
 	switch (ctrl->id) {
+#if 0
 	case TEGRA_CAMERA_CID_GAIN_TPG:
 		{
 			if (chan->vi->csi != NULL &&
@@ -1343,6 +1344,7 @@ int tegra_channel_s_ctrl(struct v4l2_ctrl *ctrl)
 			}
 		}
 		break;
+#endif
 	case TEGRA_CAMERA_CID_VI_BYPASS_MODE:
 		/* Prevent changing the bypass mode while the device is still streaming */
 		if (vb2_is_busy(&chan->queue))
@@ -1359,6 +1361,7 @@ int tegra_channel_s_ctrl(struct v4l2_ctrl *ctrl)
 		} else
 			chan->bypass = false;
 		break;
+#if 0
 	case TEGRA_CAMERA_CID_OVERRIDE_ENABLE:
 		{
 			struct v4l2_subdev *sd = chan->subdev_on_csi;
@@ -1378,6 +1381,7 @@ int tegra_channel_s_ctrl(struct v4l2_ctrl *ctrl)
 			}
 		}
 		break;
+#endif
 	case TEGRA_CAMERA_CID_VI_HEIGHT_ALIGN:
 		chan->height_align = ctrl->val;
 		tegra_channel_update_format(chan, chan->format.width,
@@ -1417,6 +1421,7 @@ static const struct v4l2_ctrl_ops channel_ctrl_ops = {
 };
 
 static const struct v4l2_ctrl_config common_custom_ctrls[] = {
+#if 0
 	{
 		.ops = &channel_ctrl_ops,
 		.id = TEGRA_CAMERA_CID_GAIN_TPG,
@@ -1427,6 +1432,7 @@ static const struct v4l2_ctrl_config common_custom_ctrls[] = {
 		.step = 1,
 		.def = 1,
 	},
+#endif
 	{
 		.ops = &channel_ctrl_ops,
 		.id = TEGRA_CAMERA_CID_GAIN_TPG_EMB_DATA_CFG,
@@ -1449,6 +1455,7 @@ static const struct v4l2_ctrl_config common_custom_ctrls[] = {
 		.menu_skip_mask = 0,
 		.qmenu_int = switch_ctrl_qmenu,
 	},
+#if 0
 	{
 		.ops = &channel_ctrl_ops,
 		.id = TEGRA_CAMERA_CID_OVERRIDE_ENABLE,
@@ -1460,6 +1467,7 @@ static const struct v4l2_ctrl_config common_custom_ctrls[] = {
 		.menu_skip_mask = 0,
 		.qmenu_int = switch_ctrl_qmenu,
 	},
+#endif
 	{
 		.ops = &channel_ctrl_ops,
 		.id = TEGRA_CAMERA_CID_VI_HEIGHT_ALIGN,
@@ -1682,6 +1690,7 @@ static int tegra_channel_setup_controls(struct tegra_channel *chan)
 	/* Add new custom controls */
 	for (i = 0; i < ARRAY_SIZE(common_custom_ctrls); i++) {
 		switch (common_custom_ctrls[i].id) {
+#if 0
 			case TEGRA_CAMERA_CID_OVERRIDE_ENABLE:
 				/* don't create override control for pg mode */
 				if (chan->pg_mode)
@@ -1695,6 +1704,7 @@ static int tegra_channel_setup_controls(struct tegra_channel *chan)
 					 !vi->csi->tpg_gain_ctrl))
 					continue;
 				break;
+#endif
 			case TEGRA_CAMERA_CID_GAIN_TPG_EMB_DATA_CFG:
 				/* Skip the custom control for sensor and
 				 * for TPG which doesn't support embedded
