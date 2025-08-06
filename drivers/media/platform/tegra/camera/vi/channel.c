@@ -1815,6 +1815,29 @@ static void tegra_channel_populate_dev_info(struct tegra_camera_dev_info *cdev,
 			return;
 		}
 	}
+#else
+	struct v4l2_mbus_config mbus_cfg = { };
+	int ret;
+
+	ret = v4l2_subdev_call(chan->subdev[0], pad, get_mbus_config,
+			       chan->subdev_pad[0], &mbus_cfg);
+	if (ret)
+		return;
+
+	max_num_lanes = mbus_cfg.bus.mipi_csi2.num_data_lanes;
+	pixelclock = mbus_cfg.link_freq * max_num_lanes;
+
+	if (mbus_cfg.type == V4L2_MBUS_CSI2_DPHY) {
+		cdev->sensor_type = SENSORTYPE_DPHY;
+		pixelclock = pixelclock * 2;
+	} else if (mbus_cfg.type == V4L2_MBUS_CSI2_CPHY) {
+		cdev->sensor_type = SENSORTYPE_CPHY;
+		pixelclock = pixelclock * 16 / 7;
+	} else {
+		return;
+	}
+
+	pixelclock /= chan->fmtinfo->width;
 #endif
 
 	/*
