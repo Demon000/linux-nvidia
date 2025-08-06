@@ -135,7 +135,9 @@ static inline struct tegra_csi_device *to_csi(struct v4l2_subdev *subdev)
 }
 
 u32 read_phy_mode_from_dt(struct tegra_csi_channel *chan);
+#if 0
 u32 read_settle_time_from_dt(struct tegra_csi_channel *chan);
+#endif
 u64 read_mipi_clk_from_dt(struct tegra_csi_channel *chan);
 #if 0
 void set_csi_portinfo(struct tegra_csi_device *csi,

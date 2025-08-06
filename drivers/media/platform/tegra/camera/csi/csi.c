@@ -90,6 +90,7 @@ read_mode_from_dt(struct camera_common_data *s_data)
 	return mode;
 }
 
+#if 0
 u32 read_settle_time_from_dt(struct tegra_csi_channel *chan)
 {
 	struct camera_common_data *s_data = chan->s_data;
@@ -119,6 +120,7 @@ u32 read_settle_time_from_dt(struct tegra_csi_channel *chan)
 
 	return cil_settletime;
 }
+#endif
 
 u32 read_phy_mode_from_dt(struct tegra_csi_channel *chan)
 {
