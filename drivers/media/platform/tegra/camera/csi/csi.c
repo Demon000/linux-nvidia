@@ -730,6 +730,15 @@ static int tegra_csi_get_mbus_config(struct v4l2_subdev *sd,
 				chan->source_sd_pad, mbus_cfg);
 }
 
+static int tegra_csi_get_frame_desc(struct v4l2_subdev *sd, unsigned int pad,
+				    struct v4l2_mbus_frame_desc *fd)
+{
+	struct tegra_csi_channel *chan = to_csi_chan(sd);
+
+	return v4l2_subdev_call(chan->source_sd, pad, get_frame_desc,
+				chan->source_sd_pad, fd);
+}
+
 /* -----------------------------------------------------------------------------
  * V4L2 Subdevice Operations
  */
@@ -751,6 +760,7 @@ static struct v4l2_subdev_pad_ops tegra_csi_pad_ops = {
 	.enum_frame_size = tegra_csi_enum_framesizes,
 	.enum_frame_interval = tegra_csi_enum_frameintervals,
 	.get_mbus_config = tegra_csi_get_mbus_config,
+	.get_frame_desc = tegra_csi_get_frame_desc,
 };
 
 static struct v4l2_subdev_core_ops tegra_csi_core_ops = {
