@@ -365,6 +365,9 @@ static void deskew_setup(struct tegra_csi_channel *chan,
 	else
 		pix_clk_hz = sig_props->pixel_clock.val;
 	deskew_enable = sig_props->deskew_initial_enable;
+#else
+	pix_clk_hz = read_mipi_clk_from_dt(chan);
+	deskew_enable = 1;
 #endif
 
 	if (pix_clk_hz >= CLK_HZ_FOR_DESKEW && deskew_enable) {
