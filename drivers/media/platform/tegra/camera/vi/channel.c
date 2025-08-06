@@ -2149,10 +2149,12 @@ __tegra_channel_try_format(struct tegra_channel *chan,
 			struct v4l2_pix_format *pix)
 {
 	const struct tegra_video_format *vfmt;
+#if 0
 	struct v4l2_subdev_format fmt = { };
 	struct v4l2_subdev *sd = chan->subdev_on_csi;
 	struct v4l2_subdev_pad_config pad_cfg = { };
 	struct v4l2_subdev_state cfg = {.pads = &pad_cfg};
+#endif
 	int ret = 0;
 
 	/* Use the channel format if pixformat is not supported */
@@ -2164,6 +2166,7 @@ __tegra_channel_try_format(struct tegra_channel *chan,
 			return -EINVAL;
 	}
 
+#if 0
 	fmt.which = V4L2_SUBDEV_FORMAT_TRY;
 	fmt.pad = 0;
 	v4l2_fill_mbus_format(&fmt.format, pix, vfmt->code);
@@ -2173,6 +2176,7 @@ __tegra_channel_try_format(struct tegra_channel *chan,
 		return -ENOTTY;
 
 	v4l2_fill_pix_format(pix, &fmt.format);
+#endif
 
 	tegra_channel_fmt_align(chan, vfmt,
 				&pix->width, &pix->height, &pix->bytesperline);
@@ -2198,16 +2202,19 @@ __tegra_channel_set_format(struct tegra_channel *chan,
 			struct v4l2_pix_format *pix)
 {
 	const struct tegra_video_format *vfmt;
+#if 0
 	struct v4l2_subdev_format fmt = { };
 	struct v4l2_subdev *sd = chan->subdev_on_csi;
 	struct v4l2_subdev_pad_config pad_cfg = { };
 	struct v4l2_subdev_state cfg = {.pads = &pad_cfg};
+#endif
 	int ret = 0;
 
 	vfmt = tegra_core_get_format_by_fourcc(chan, pix->pixelformat);
 	if (!vfmt)
 		return -EINVAL;
 
+#if 0
 	fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
 	fmt.pad = 0;
 	v4l2_fill_mbus_format(&fmt.format, pix, vfmt->code);
@@ -2217,6 +2224,8 @@ __tegra_channel_set_format(struct tegra_channel *chan,
 		return -ENOTTY;
 
 	v4l2_fill_pix_format(pix, &fmt.format);
+#endif
+
 	if (!ret) {
 		chan->format = *pix;
 		chan->fmtinfo = vfmt;
