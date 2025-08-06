@@ -294,6 +294,7 @@ static void tegra_channel_update_format(struct tegra_channel *chan,
 
 static void tegra_channel_fmts_bitmap_init(struct tegra_channel *chan)
 {
+#if 0
 	int ret, pixel_format_index = 0, init_code = 0;
 	struct v4l2_subdev *subdev = chan->subdev_on_csi;
 	struct v4l2_subdev_format fmt = {
@@ -349,6 +350,17 @@ static void tegra_channel_fmts_bitmap_init(struct tegra_channel *chan)
 	ret = v4l2_subdev_call(subdev, pad, get_fmt, &cfg, &fmt);
 	if (ret)
 		return;
+#else
+	struct v4l2_subdev_format fmt = {
+		.format = {
+			.width = TEGRA_DEF_WIDTH,
+			.height = TEGRA_DEF_HEIGHT,
+			.code = TEGRA_VF_DEF,
+		},
+	};
+
+	bitmap_fill(chan->fmts_bitmap, MAX_FORMAT_NUM);
+#endif
 
 	/* Initiate the channel format to the first matched format */
 	chan->fmtinfo =
