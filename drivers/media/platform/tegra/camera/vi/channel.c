@@ -1685,6 +1685,7 @@ static int tegra_channel_connect_sensor(
 }
 #endif
 
+#if 0
 static int map_to_sensor_type(u32 phy_mode)
 {
 	switch (phy_mode) {
@@ -1776,12 +1777,14 @@ static u64 tegra_channel_get_max_source_rate(void)
 	u64 pixelrate = HDMI_IN_RATE;
 	return pixelrate;
 }
+#endif
 
 static void tegra_channel_populate_dev_info(struct tegra_camera_dev_info *cdev,
 			struct tegra_channel *chan)
 {
 	u64 pixelclock = 0;
 	u32 max_num_lanes = 0;
+#if 0
 	struct camera_common_data *s_data =
 			to_camera_common_data(chan->subdev_on_csi->dev);
 
@@ -1812,6 +1815,8 @@ static void tegra_channel_populate_dev_info(struct tegra_camera_dev_info *cdev,
 			return;
 		}
 	}
+#endif
+
 	/*
 	 * VI clk scaling for gang mode usecase where 2 CSI bricks
 	 * stream through a single VI channel.
