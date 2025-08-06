@@ -155,6 +155,7 @@ u64 read_mipi_clk_from_dt(struct tegra_csi_channel *chan)
 	return mipi_clk;
 }
 
+#if 0
 void set_csi_portinfo(struct tegra_csi_device *csi,
 	unsigned int port, unsigned int numlanes)
 {
@@ -165,6 +166,7 @@ void set_csi_portinfo(struct tegra_csi_device *csi,
 	s_data->def_clk_freq = TEGRA_CLOCK_CSI_PORT_MAX;
 }
 EXPORT_SYMBOL(set_csi_portinfo);
+#endif
 
 int tegra_csi_power(struct tegra_csi_device *csi,
 			struct tegra_csi_channel *chan, int enable)
