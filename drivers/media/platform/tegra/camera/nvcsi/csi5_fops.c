@@ -286,7 +286,11 @@ static int csi5_stream_set_config(struct tegra_csi_channel *chan, u32 stream_id,
 	cil_config.lp_bypass_mode = is_cphy ? 0 : 1;
 	cil_config.t_hs_settle = cil_settletime;
 
+#if 0
 	if (s_data && !chan->pg_mode)
+#else
+	if (!chan->pg_mode)
+#endif
 		cil_config.mipi_clock_rate = read_mipi_clk_from_dt(chan) / 1000;
 	else
 #if 0

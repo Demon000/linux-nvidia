@@ -178,7 +178,15 @@ u64 read_mipi_clk_from_dt(struct tegra_csi_channel *chan)
 
 	return mipi_clk;
 #else
-	return 0;
+	struct v4l2_mbus_config mbus_cfg = { };
+	int ret;
+
+	ret = v4l2_subdev_call(chan->source_sd, pad, get_mbus_config,
+			       chan->source_sd_pad, &mbus_cfg);
+	if (ret)
+		return 0;
+
+	return mbus_cfg.link_freq;
 #endif
 }
 
