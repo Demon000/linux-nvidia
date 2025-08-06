@@ -46,6 +46,7 @@ struct tegra_csi_device *tegra_get_mc_csi(void)
 }
 EXPORT_SYMBOL(tegra_get_mc_csi);
 
+#if 0
 static int set_csi_properties(struct tegra_csi_device *csi,
 			struct platform_device *pdev)
 {
@@ -62,6 +63,7 @@ static int set_csi_properties(struct tegra_csi_device *csi,
 
 	return 0;
 }
+#endif
 
 static void update_blank_intervals(struct tegra_csi_channel *chan,
 		int portnum, int fmtindex)
@@ -848,9 +850,12 @@ int tegra_csi_init(struct tegra_csi_device *csi,
 	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
 
 	csi->dev = &pdev->dev;
+
+#if 0
 	err = set_csi_properties(csi, pdev);
 	if (err)
 		return err;
+#endif
 
 	csi->iomem_base = pdata->aperture[0];
 	csi->fops->hw_init(csi);

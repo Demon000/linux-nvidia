@@ -74,7 +74,9 @@ struct tegra_csi_device {
 	struct tegra_csi_port *ports;
 	struct media_pad *pads;
 
+#if 0
 	unsigned int clk_freq;
+#endif
 	int num_ports;
 	int num_channels;
 	struct list_head csi_chans;
