@@ -2056,6 +2056,7 @@ fail:
 }
 EXPORT_SYMBOL(tegra_channel_init_subdevices);
 
+#if 0
 struct v4l2_subdev *tegra_channel_find_linked_csi_subdev(
 	struct tegra_channel *chan)
 {
@@ -2072,6 +2073,7 @@ struct v4l2_subdev *tegra_channel_find_linked_csi_subdev(
 	return NULL;
 }
 EXPORT_SYMBOL(tegra_channel_find_linked_csi_subdev);
+#endif
 
 static int
 tegra_channel_get_format(struct file *file, void *fh,
