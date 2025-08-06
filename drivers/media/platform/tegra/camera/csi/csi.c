@@ -144,7 +144,20 @@ u32 read_phy_mode_from_dt(struct tegra_csi_channel *chan)
 
 	return phy_mode;
 #else
-	return CSI_PHY_MODE_DPHY;
+	struct v4l2_mbus_config mbus_cfg = { };
+	int ret;
+
+	ret = v4l2_subdev_call(chan->source_sd, pad, get_mbus_config,
+			       chan->source_sd_pad, &mbus_cfg);
+	if (ret)
+		return ret;
+
+	if (mbus_cfg.type == V4L2_MBUS_CSI2_DPHY)
+		return CSI_PHY_MODE_DPHY;
+	else if (mbus_cfg.type == V4L2_MBUS_CSI2_CPHY)
+		return CSI_PHY_MODE_CPHY;
+
+	return -EINVAL;
 #endif
 }
 
