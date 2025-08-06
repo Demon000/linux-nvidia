@@ -1633,6 +1633,7 @@ static void tegra_channel_free_sensor_properties(
 }
 #endif
 
+#if 0
 static int tegra_channel_connect_sensor(
 	struct tegra_channel *chan, struct v4l2_subdev *sensor_sd)
 {
@@ -1682,6 +1683,7 @@ static int tegra_channel_connect_sensor(
 
 	return 0;
 }
+#endif
 
 static int map_to_sensor_type(u32 phy_mode)
 {
@@ -1941,6 +1943,7 @@ int tegra_channel_init_subdevices(struct tegra_channel *chan)
 		return ret;
 	}
 
+#if 0
 	/* Add a link for the camera_common_data in the tegra_csi_channel. */
 	ret = tegra_channel_connect_sensor(chan, chan->subdev_on_csi);
 	if (ret < 0) {
@@ -1948,6 +1951,7 @@ int tegra_channel_init_subdevices(struct tegra_channel *chan)
 			"%s: failed to connect sensor to channel\n", __func__);
 		goto fail;
 	}
+#endif
 
 	tegra_channel_populate_dev_info(&camdev_info, chan);
 	ret = tegra_camera_device_register(&camdev_info, chan);
