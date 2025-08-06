@@ -203,8 +203,10 @@ static int csi5_stream_set_config(struct tegra_csi_channel *chan, u32 stream_id,
 	struct tegra_channel *tegra_chan =
 			v4l2_get_subdev_hostdata(&chan->subdev);
 
+#if 0
 	struct camera_common_data *s_data = chan->s_data;
 	const struct sensor_mode_properties *mode = NULL;
+#endif
 
 	unsigned int cil_settletime = 0;
 	unsigned int lane_polarity = 0;
@@ -219,6 +221,7 @@ static int csi5_stream_set_config(struct tegra_csi_channel *chan, u32 stream_id,
 	dev_dbg(csi->dev, "%s: stream_id=%u, csi_port=%u\n",
 		__func__, stream_id, csi_port);
 
+#if 0
 	/* Attempt to find the brick config from the device tree */
 	if (s_data) {
 		int idx = s_data->mode_prop_idx;
@@ -233,7 +236,9 @@ static int csi5_stream_set_config(struct tegra_csi_channel *chan, u32 stream_id,
 			cil_settletime = 0;
 			lane_polarity = 0;
 		}
-	} else if (chan->of_node) {
+	} else
+#endif
+	if (chan->of_node) {
 		int err = 0;
 		const char *str = NULL;
 
