@@ -1182,6 +1182,7 @@ tegra_channel_enum_format(struct file *file, void *fh, struct v4l2_fmtdesc *f)
 	return 0;
 }
 
+#if 0
 static int
 tegra_channel_g_edid(struct file *file, void *fh, struct v4l2_edid *edid)
 {
@@ -1317,6 +1318,7 @@ tegra_channel_dv_timings_cap(struct file *file, void *fh,
 
 	return v4l2_subdev_call(sd, pad, dv_timings_cap, cap);
 }
+#endif
 
 int tegra_channel_s_ctrl(struct v4l2_ctrl *ctrl)
 {
@@ -2366,6 +2368,7 @@ static const struct v4l2_ioctl_ops tegra_channel_ioctl_ops = {
 	.vidioc_expbuf			= vb2_ioctl_expbuf,
 	.vidioc_streamon		= vb2_ioctl_streamon,
 	.vidioc_streamoff		= vb2_ioctl_streamoff,
+#if 0
 	.vidioc_g_edid			= tegra_channel_g_edid,
 	.vidioc_s_edid			= tegra_channel_s_edid,
 	.vidioc_s_dv_timings		= tegra_channel_s_dv_timings,
@@ -2373,6 +2376,7 @@ static const struct v4l2_ioctl_ops tegra_channel_ioctl_ops = {
 	.vidioc_query_dv_timings	= tegra_channel_query_dv_timings,
 	.vidioc_enum_dv_timings		= tegra_channel_enum_dv_timings,
 	.vidioc_dv_timings_cap		= tegra_channel_dv_timings_cap,
+#endif
 	.vidioc_subscribe_event		= tegra_channel_subscribe_event,
 	.vidioc_unsubscribe_event	= v4l2_event_unsubscribe,
 	.vidioc_enum_input		= tegra_channel_enum_input,
