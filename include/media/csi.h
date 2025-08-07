@@ -109,6 +109,7 @@ struct tegra_csi_channel {
 	struct list_head list;
 	struct v4l2_subdev subdev;
 	struct media_pad *pads;
+	struct v4l2_ctrl_handler ctrl_handler;
 	struct media_pipeline pipe;
 #if 0
 	struct v4l2_subdev *sensor_sd;
