@@ -1605,6 +1605,7 @@ error:
 	return ret;
 }
 
+#if 0
 static void tegra_channel_free_sensor_properties(
 		const struct v4l2_subdev *sensor_sd)
 {
@@ -1630,6 +1631,7 @@ static void tegra_channel_free_sensor_properties(
 			chan->s_data = NULL;
 	}
 }
+#endif
 
 static int tegra_channel_connect_sensor(
 	struct tegra_channel *chan, struct v4l2_subdev *sensor_sd)
@@ -1825,7 +1827,9 @@ static void tegra_channel_populate_dev_info(struct tegra_camera_dev_info *cdev,
 
 void tegra_channel_remove_subdevices(struct tegra_channel *chan)
 {
+#if 0
 	tegra_channel_free_sensor_properties(chan->subdev_on_csi);
+#endif
 	video_unregister_device(chan->video);
 	chan->video = NULL;
 	chan->num_subdevs = 0;
@@ -1950,7 +1954,9 @@ int tegra_channel_init_subdevices(struct tegra_channel *chan)
 
 	return ret;
 fail:
+#if 0
 	tegra_channel_free_sensor_properties(chan->subdev_on_csi);
+#endif
 	return ret;
 }
 EXPORT_SYMBOL(tegra_channel_init_subdevices);
