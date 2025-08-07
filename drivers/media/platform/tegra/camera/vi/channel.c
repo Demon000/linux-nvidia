@@ -1862,9 +1862,7 @@ void tegra_channel_remove_subdevices(struct tegra_channel *chan)
 	video_unregister_device(chan->video);
 	chan->video = NULL;
 	chan->num_subdevs = 0;
-#if 0
 	chan->subdev_on_csi = NULL;
-#endif
 }
 EXPORT_SYMBOL(tegra_channel_remove_subdevices);
 
@@ -1874,9 +1872,7 @@ int tegra_channel_init_subdevices(struct tegra_channel *chan)
 	struct media_entity *entity;
 	struct media_pad *pad;
 	struct v4l2_subdev *sd;
-#if 0
 	int index = 0;
-#endif
 	u8 num_sd = 0;
 	struct tegra_camera_dev_info camdev_info;
 	int grp_id = chan->pg_mode ? (TPG_CSI_GROUP_ID + chan->port[0] + 1)
@@ -1910,7 +1906,6 @@ int tegra_channel_init_subdevices(struct tegra_channel *chan)
 
 	sd->grp_id = grp_id;
 	chan->grp_id = grp_id;
-#if 0
 	while (index < entity->num_pads) {
 		pad = &entity->pads[index];
 		if (!(pad->flags & MEDIA_PAD_FL_SINK)) {
@@ -1942,18 +1937,14 @@ int tegra_channel_init_subdevices(struct tegra_channel *chan)
 		if (len < 0)
 			return -EINVAL;
 	}
-#endif
 	spec_bar(); /** for num_sd < MAX_SUBDEVICES */
 
 	chan->num_subdevs = num_sd;
-
-#if 0
 	/*
 	 * Each CSI channel has only one final remote source,
 	 * Mark that subdev as subdev_on_csi
 	 */
 	chan->subdev_on_csi = sd;
-#endif
 
 	/* initialize the available formats */
 	if (chan->num_subdevs)
@@ -1972,12 +1963,8 @@ int tegra_channel_init_subdevices(struct tegra_channel *chan)
 	 * If subdev on csi is csi or channel is in pg mode
 	 * then don't look for sensor props
 	 */
-#if 0
 	if (strstr(chan->subdev_on_csi->name, "nvcsi") != NULL ||
 			chan->pg_mode) {
-#else
-	if (chan->pg_mode) {
-#endif
 		tegra_channel_populate_dev_info(&camdev_info, chan);
 		ret = tegra_camera_device_register(&camdev_info, chan);
 		return ret;

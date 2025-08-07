@@ -40,7 +40,7 @@
 #include <linux/version.h>
 
 #define MAX_FORMAT_NUM	64
-#define	MAX_SUBDEVICES	1
+#define	MAX_SUBDEVICES	4
 #define	QUEUED_BUFFERS	4
 #define	ENABLE		1
 #define	DISABLE		0
@@ -170,9 +170,7 @@ struct tegra_channel {
 	struct v4l2_subdev *subdev[MAX_SUBDEVICES];
 	u32 subdev_pad[MAX_SUBDEVICES];
 
-#if 0
 	struct v4l2_subdev *subdev_on_csi;
-#endif
 
 	struct v4l2_ctrl_handler ctrl_handler;
 	struct v4l2_pix_format format;
