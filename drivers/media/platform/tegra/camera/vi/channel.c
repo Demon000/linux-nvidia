@@ -1903,8 +1903,8 @@ int tegra_channel_init_subdevices(struct tegra_channel *chan)
 	chan->is_slvsec = (strstr(sd->name, "slvs") != NULL) ? 1 : 0;
 
 	/* Add subdev name to this video dev name with vi-output tag*/
-	len = snprintf(chan->video->name, sizeof(chan->video->name), "%s, imx219 9-0010",
-		"vi-output");
+	len = snprintf(chan->video->name, sizeof(chan->video->name), "%s, %s",
+		"vi-output", sd->name);
 	if (len < 0)
 		return -EINVAL;
 
